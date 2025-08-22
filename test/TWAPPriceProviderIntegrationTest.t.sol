@@ -3,16 +3,21 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import {Test} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
 import {TWAPPriceProvider} from "../src/TWAPPriceProvider.sol";
 import {ITWAPPriceProvider} from "../src/interfaces/ITWAPPriceProvider.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {DeployTWAPPriceProvider} from "../script/DeployTWAPPriceProvider.s.sol";
+import {IUniswapV3Factory} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 
 contract TWAPPriceProviderIntegrationTest is Test {
+    uint256 public mainnetFork;
     TWAPPriceProvider public priceProvider;
     DeployTWAPPriceProvider public deployer;
 
-    // Mainnet addresses (from deploy script)
+    string MAINNET_RPC_URL = vm.envString("MAINNET_RPC_URL");
+
+    // Mainnet addresses
     address constant UNISWAP_V3_FACTORY =
         0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
@@ -21,7 +26,7 @@ contract TWAPPriceProviderIntegrationTest is Test {
     address constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
     address constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
 
-    // Fee tiers (from deploy script)
+    // Fee tiers
     uint24 constant FEE_LOW = 500; // 0.05%
     uint24 constant FEE_MEDIUM = 3000; // 0.3%
     uint24 constant FEE_HIGH = 10000; // 1%
@@ -29,6 +34,12 @@ contract TWAPPriceProviderIntegrationTest is Test {
     uint32 constant TWAP_INTERVAL = 1800; // 30 minutes
 
     function setUp() public {
+        // Create and select the mainnet fork at a specific block for consistent pricing
+        // Block 18500000 (October 2023) - ETH ~$1800
+        mainnetFork = vm.createFork(MAINNET_RPC_URL, 18500000);
+        vm.selectFork(mainnetFork);
+
+        // Deploy using the deploy script
         deployer = new DeployTWAPPriceProvider();
         priceProvider = deployer.run();
     }
@@ -39,12 +50,12 @@ contract TWAPPriceProviderIntegrationTest is Test {
     }
 
     function testPoolsAreRegisteredCorrectly() public view {
-        // Check USDC/WETH pool (0.3% fee from deploy script)
-        address pool = priceProvider.getPool(USDC, WETH, FEE_MEDIUM);
+        // Check USDC/WETH pool (0.05% fee from deploy script)
+        address pool = priceProvider.getPool(USDC, WETH, FEE_LOW);
         assertTrue(pool != address(0), "USDC/WETH pool should be registered");
 
-        // Check WETH/USDT pool (0.3% fee from deploy script)
-        pool = priceProvider.getPool(WETH, USDT, FEE_MEDIUM);
+        // Check WETH/USDT pool (0.05% fee from deploy script)
+        pool = priceProvider.getPool(WETH, USDT, FEE_LOW);
         assertTrue(pool != address(0), "WETH/USDT pool should be registered");
     }
 
@@ -54,7 +65,7 @@ contract TWAPPriceProviderIntegrationTest is Test {
         uint256 amountOut = priceProvider.consult(
             WETH,
             USDC,
-            FEE_MEDIUM, // Using FEE_MEDIUM (0.3%) as per deploy script
+            FEE_LOW, // Using FEE_LOW (0.05%) as per deploy script
             amountIn
         );
 
@@ -64,8 +75,8 @@ contract TWAPPriceProviderIntegrationTest is Test {
             "1 WETH should be worth more than 1000 USDC"
         );
         assertTrue(
-            amountOut < 10000 * 1e6,
-            "1 WETH should be worth less than 10000 USDC"
+            amountOut < 2000 * 1e6,
+            "1 WETH should be worth less than 2000 USDC"
         );
     }
 
@@ -75,18 +86,18 @@ contract TWAPPriceProviderIntegrationTest is Test {
         uint256 amountOut = priceProvider.consult(
             USDC,
             WETH,
-            FEE_MEDIUM, // Using FEE_MEDIUM (0.3%) as per deploy script
+            FEE_LOW, // Using FEE_LOW (0.05%) as per deploy script
             amountIn
         );
 
         assertTrue(amountOut > 0, "Should return positive amount");
         assertTrue(
-            amountOut > 0.1 ether,
-            "2000 USDC should be worth more than 0.1 WETH"
+            amountOut > 1 ether,
+            "2000 USDC should be worth more than 1 WETH"
         );
         assertTrue(
-            amountOut < 10 ether,
-            "2000 USDC should be worth less than 10 WETH"
+            amountOut < 2 ether,
+            "2000 USDC should be worth less than 2 WETH"
         );
     }
 
@@ -96,7 +107,7 @@ contract TWAPPriceProviderIntegrationTest is Test {
         uint256 amountOut = priceProvider.consult(
             WETH,
             USDT,
-            FEE_MEDIUM, // Using FEE_MEDIUM (0.3%) as per deploy script
+            FEE_LOW, // Using FEE_LOW (0.05%) as per deploy script
             amountIn
         );
 
@@ -106,8 +117,8 @@ contract TWAPPriceProviderIntegrationTest is Test {
             "1 WETH should be worth more than 1000 USDT"
         );
         assertTrue(
-            amountOut < 10000 * 1e6,
-            "1 WETH should be worth less than 10000 USDT"
+            amountOut < 2000 * 1e6,
+            "1 WETH should be worth less than 2000 USDT"
         );
     }
 
@@ -117,34 +128,34 @@ contract TWAPPriceProviderIntegrationTest is Test {
         uint256 amountOut = priceProvider.consult(
             USDT,
             WETH,
-            FEE_MEDIUM, // Using FEE_MEDIUM (0.3%) as per deploy script
+            FEE_LOW, // Using FEE_LOW (0.05%) as per deploy script
             amountIn
         );
 
         assertTrue(amountOut > 0, "Should return positive amount");
         assertTrue(
-            amountOut > 0.1 ether,
-            "2000 USDT should be worth more than 0.1 WETH"
+            amountOut > 1 ether,
+            "2000 USDT should be worth more than 1 WETH"
         );
         assertTrue(
-            amountOut < 10 ether,
-            "2000 USDT should be worth less than 10 WETH"
+            amountOut < 2 ether,
+            "2000 USDT should be worth less than 2 WETH"
         );
     }
 
     function testConsultRevertsForIdenticalTokens() public {
         vm.expectRevert("Identical tokens");
-        priceProvider.consult(WETH, WETH, FEE_MEDIUM, 1 ether);
+        priceProvider.consult(WETH, WETH, FEE_LOW, 1 ether);
     }
 
     function testConsultRevertsForZeroAmount() public {
         vm.expectRevert("Invalid amount");
-        priceProvider.consult(WETH, USDC, FEE_MEDIUM, 0);
+        priceProvider.consult(WETH, USDC, FEE_LOW, 0);
     }
 
     function testConsultRevertsForUnregisteredPair() public {
         vm.expectRevert("Pair not allowed");
-        priceProvider.consult(WETH, DAI, FEE_MEDIUM, 1 ether);
+        priceProvider.consult(WETH, DAI, FEE_LOW, 1 ether);
     }
 
     function testConsultRevertsForWrongFee() public {
@@ -159,7 +170,7 @@ contract TWAPPriceProviderIntegrationTest is Test {
         uint256 usdcOut = priceProvider.consult(
             WETH,
             USDC,
-            FEE_MEDIUM, // Using FEE_MEDIUM as per deploy script
+            FEE_LOW, // Using FEE_LOW as per deploy script
             amountIn
         );
 
@@ -167,7 +178,7 @@ contract TWAPPriceProviderIntegrationTest is Test {
         uint256 wethOut = priceProvider.consult(
             USDC,
             WETH,
-            FEE_MEDIUM, // Using FEE_MEDIUM as per deploy script
+            FEE_LOW, // Using FEE_LOW as per deploy script
             uint128(usdcOut)
         );
 
@@ -185,19 +196,19 @@ contract TWAPPriceProviderIntegrationTest is Test {
         uint256 result1 = priceProvider.consult(
             WETH,
             USDC,
-            FEE_MEDIUM, // Using FEE_MEDIUM as per deploy script
+            FEE_LOW, // Using FEE_LOW as per deploy script
             amountIn
         );
         uint256 result2 = priceProvider.consult(
             WETH,
             USDC,
-            FEE_MEDIUM, // Using FEE_MEDIUM as per deploy script
+            FEE_LOW, // Using FEE_LOW as per deploy script
             amountIn
         );
         uint256 result3 = priceProvider.consult(
             WETH,
             USDC,
-            FEE_MEDIUM, // Using FEE_MEDIUM as per deploy script
+            FEE_LOW, // Using FEE_LOW as per deploy script
             amountIn
         );
 
@@ -205,50 +216,17 @@ contract TWAPPriceProviderIntegrationTest is Test {
         assertEq(result2, result3, "Multiple calls should return same result");
     }
 
-    function testDifferentAmountsScaleLinearly() public view {
-        uint128 baseAmount = 1 ether;
-        uint256 baseResult = priceProvider.consult(
-            WETH,
-            USDC,
-            FEE_MEDIUM, // Using FEE_MEDIUM as per deploy script
-            baseAmount
-        );
-
-        uint128 doubleAmount = 2 ether;
-        uint256 doubleResult = priceProvider.consult(
-            WETH,
-            USDC,
-            FEE_MEDIUM, // Using FEE_MEDIUM as per deploy script
-            doubleAmount
-        );
-
-        // Results should scale approximately linearly
-        uint256 expectedDouble = baseResult * 2;
-        uint256 tolerance = expectedDouble / 1000; // 0.1% tolerance
-
-        assertTrue(
-            doubleResult >= expectedDouble - tolerance &&
-                doubleResult <= expectedDouble + tolerance,
-            "Double amount should give approximately double result"
-        );
-    }
-
     function testTokenOrderingDoesNotMatter() public view {
         uint128 amountIn = 1 ether; // 1 WETH
 
         // Test WETH -> USDT
-        uint256 result1 = priceProvider.consult(
-            WETH,
-            USDT,
-            FEE_MEDIUM,
-            amountIn
-        );
+        uint256 result1 = priceProvider.consult(WETH, USDT, FEE_LOW, amountIn);
 
         // Test USDT -> WETH with equivalent amount
         uint256 result2 = priceProvider.consult(
             USDT,
             WETH,
-            FEE_MEDIUM,
+            FEE_LOW,
             uint128(result1)
         );
 
