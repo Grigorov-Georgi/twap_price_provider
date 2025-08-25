@@ -5,14 +5,28 @@ pragma abicoder v2;
 import {Script} from "forge-std/Script.sol";
 import {TWAPPriceProvider} from "../src/TWAPPriceProvider.sol";
 
+/**
+ * @title DeployTWAPPriceProvider
+ * @notice Deployment script for TWAPPriceProvider contract on Ethereum mainnet
+ * @dev Deploys with pre-configured USDC/WETH and WETH/USDT pairs using 0.05% fee pools
+ */
 contract DeployTWAPPriceProvider is Script {
+    /// @dev Uniswap V3 Factory address on Ethereum mainnet
     address constant UNISWAP_V3_FACTORY =
         0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
+    ///  @dev Wrapped Ether token address on Ethereum mainnet
     address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    /// @dev USD Coin token address on Ethereum mainnet
     address constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    /// @dev Tether USD token address on Ethereum mainnet
     address constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
+    /**
+     * @notice Deploys the TWAPPriceProvider contract with mainnet configuration
+     * @dev Sets up USDC/WETH and WETH/USDT pairs with 30-minute TWAP interval
+     * @return priceProvider The deployed TWAPPriceProvider contract instance
+     */
     function run() external returns (TWAPPriceProvider) {
         vm.startBroadcast();
 

@@ -6,20 +6,41 @@ import {IUniswapV3Factory} from "@uniswap/v3-core/contracts/interfaces/IUniswapV
 import {OracleLibrary} from "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
 import {ITWAPPriceProvider} from "./interfaces/ITWAPPriceProvider.sol";
 
+/**
+ * @title TWAPPriceProvider
+ * @notice Provides time-weighted average price (TWAP) quotes for token pairs using Uniswap V3 pools
+ * @dev This contract allows querying TWAP prices for pre-configured token pairs over a fixed time interval
+ */
 contract TWAPPriceProvider is ITWAPPriceProvider {
+    /**
+     * @notice Represents a token pair configuration for TWAP price queries
+     * @param tokenA First token address
+     * @param tokenB Second token address
+     * @param fee Pool fee tier (e.g., 500 for 0.05%, 3000 for 0.3%)
+     */
     struct Pair {
         address tokenA;
         address tokenB;
         uint24 fee;
     }
 
+    /// @notice Address of the Uniswap V3 factory contract
     address public immutable uniswapFactory;
+
+    /// @notice Time interval in seconds for TWAP calculation
     uint32 public immutable twapInterval;
 
+    /// @notice Mapping from token0 -> token1 -> fee -> pool address
     mapping(address => mapping(address => mapping(uint24 => address)))
         public
         override getPool;
 
+    /**
+     * @notice Initializes the TWAP price provider with factory, interval, and allowed pairs
+     * @param _factory Address of the Uniswap V3 factory contract
+     * @param _interval Time interval in seconds for TWAP calculation
+     * @param pairs Array of token pairs to enable for price queries
+     */
     constructor(address _factory, uint32 _interval, Pair[] memory pairs) {
         require(_factory != address(0), "Invalid factory");
         require(_interval > 0, "TWAP interval must be > 0");
@@ -52,6 +73,14 @@ contract TWAPPriceProvider is ITWAPPriceProvider {
         }
     }
 
+    /**
+     * @notice Gets the TWAP price quote for a token swap
+     * @param tokenIn Address of the input token
+     * @param tokenOut Address of the output token
+     * @param fee Pool fee tier to use for the quote
+     * @param amountIn Amount of input tokens
+     * @return amountOut Expected amount of output tokens based on TWAP
+     */
     function consult(
         address tokenIn,
         address tokenOut,
@@ -75,6 +104,13 @@ contract TWAPPriceProvider is ITWAPPriceProvider {
         );
     }
 
+    /**
+     * @notice Orders two token addresses according to Uniswap V3 convention (token0 < token1)
+     * @param a First token address
+     * @param b Second token address
+     * @return token0 Lower address (token0)
+     * @return token1 Higher address (token1)
+     */
     function _orderTokens(
         address a,
         address b
