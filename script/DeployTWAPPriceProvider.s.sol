@@ -4,6 +4,7 @@ pragma abicoder v2;
 
 import {Script} from "forge-std/Script.sol";
 import {TWAPPriceProvider} from "../src/TWAPPriceProvider.sol";
+import {UniswapV3PoolManager} from "../src/UniswapV3PoolManager.sol";
 
 /**
  * @title DeployTWAPPriceProvider
@@ -33,17 +34,18 @@ contract DeployTWAPPriceProvider is Script {
         // TWAP interval: 30 minutes (1800 seconds)
         uint32 interval = 1800;
 
-        TWAPPriceProvider.Pair[] memory pairs = new TWAPPriceProvider.Pair[](2);
+        UniswapV3PoolManager.Pair[]
+            memory pairs = new UniswapV3PoolManager.Pair[](2);
 
         // USDC/WETH 0.05% fee (most liquid pool)
-        pairs[0] = TWAPPriceProvider.Pair({
+        pairs[0] = UniswapV3PoolManager.Pair({
             tokenA: USDC,
             tokenB: WETH,
             fee: 500
         });
 
         // WETH/USDT 0.05% fee
-        pairs[1] = TWAPPriceProvider.Pair({
+        pairs[1] = UniswapV3PoolManager.Pair({
             tokenA: WETH,
             tokenB: USDT,
             fee: 500
