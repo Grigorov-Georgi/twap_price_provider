@@ -40,6 +40,9 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
     uint24 constant FEE_MEDIUM = 3000; // 0.3%
     uint24 constant FEE_HIGH = 10000; // 1%
 
+    uint256 constant UNDER_CURRENT_ETH_VALUE = 4500 * 1e6; // 4500 USDC/USDT
+    uint256 constant ABOVE_CURRENT_ETH_VALUE = 5000 * 1e6; // 5000 USDC/USDT
+
     function setUp() public {
         // Create fork at block 23231874 (end of august 2025) [eth price ~$4600]
         mainnetFork = vm.createFork(MAINNET_RPC_URL, 23231874);
@@ -145,12 +148,12 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
         );
 
         assertTrue(
-            amountOut > 4400 * 1e6,
-            "1 WETH should be worth more than 4400 USDC"
+            amountOut > UNDER_CURRENT_ETH_VALUE,
+            "1 WETH should be worth more than 4500 USDC"
         );
         assertTrue(
-            amountOut < 4800 * 1e6,
-            "1 WETH should be worth less than 4800 USDC"
+            amountOut < ABOVE_CURRENT_ETH_VALUE,
+            "1 WETH should be worth less than 5000 USDC"
         );
 
         vm.stopPrank();
@@ -192,8 +195,8 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
         );
 
         assertTrue(
-            amountIn > 2200 * 1e6,
-            "0.5 WETH should cost more than 2200 USDC"
+            amountIn > UNDER_CURRENT_ETH_VALUE / 2,
+            "0.5 WETH should cost more than 2250 USDC"
         );
         assertTrue(amountIn < amountInMaximum, "Should use less than maximum");
 
@@ -234,8 +237,8 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
         );
 
         assertTrue(
-            amountOut > 4400 * 1e6,
-            "1 ETH should be worth more than 4400 USDC"
+            amountOut > UNDER_CURRENT_ETH_VALUE,
+            "1 ETH should be worth more than 4500 USDC"
         );
 
         vm.stopPrank();
@@ -431,6 +434,380 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
         assertTrue(
             amountOut >= twapQuote - slippageTolerance,
             "Output should be within slippage tolerance of TWAP"
+        );
+
+        vm.stopPrank();
+    }
+
+    function testSwapExactInputMultihopWETHToUSDCToUSDT() public {
+        vm.startPrank(user);
+
+        uint256 amountIn = 1 ether;
+        uint256 deadline = block.timestamp + 300;
+
+        UniswapV3SwapProvider.SwapHop[]
+            memory hops = new UniswapV3SwapProvider.SwapHop[](2);
+
+        hops[0] = UniswapV3SwapProvider.SwapHop({
+            tokenIn: MAINNET_WETH,
+            tokenOut: MAINNET_USDC,
+            fee: FEE_LOW
+        });
+
+        hops[1] = UniswapV3SwapProvider.SwapHop({
+            tokenIn: MAINNET_USDC,
+            tokenOut: MAINNET_USDT,
+            fee: FEE_LOW
+        });
+
+        weth.approve(address(swapProvider), amountIn);
+
+        uint256 wethBalanceBefore = weth.balanceOf(user);
+        uint256 usdtBalanceBefore = usdt.balanceOf(user);
+
+        uint256 amountOut = swapProvider.swapExactInputMultihop(
+            hops,
+            amountIn,
+            0, // Auto-calculate minimum output
+            deadline
+        );
+
+        uint256 wethBalanceAfter = weth.balanceOf(user);
+        uint256 usdtBalanceAfter = usdt.balanceOf(user);
+
+        assertEq(
+            wethBalanceBefore - wethBalanceAfter,
+            amountIn,
+            "WETH balance should decrease by amountIn"
+        );
+        assertEq(
+            usdtBalanceAfter - usdtBalanceBefore,
+            amountOut,
+            "USDT balance should increase by amountOut"
+        );
+
+        assertTrue(
+            amountOut > UNDER_CURRENT_ETH_VALUE,
+            "1 WETH should get more than 4500 USDT"
+        );
+        assertTrue(
+            amountOut < ABOVE_CURRENT_ETH_VALUE,
+            "1 WETH should get less than 5000 USDT"
+        );
+
+        vm.stopPrank();
+    }
+
+    function testSwapExactInputMultihopETHToUSDCToUSDT() public {
+        vm.startPrank(user);
+
+        uint256 amountIn = 0.5 ether;
+        uint256 deadline = block.timestamp + 300;
+
+        UniswapV3SwapProvider.SwapHop[]
+            memory hops = new UniswapV3SwapProvider.SwapHop[](2);
+
+        hops[0] = UniswapV3SwapProvider.SwapHop({
+            tokenIn: address(0),
+            tokenOut: MAINNET_USDC,
+            fee: FEE_LOW
+        });
+
+        hops[1] = UniswapV3SwapProvider.SwapHop({
+            tokenIn: MAINNET_USDC,
+            tokenOut: MAINNET_USDT,
+            fee: FEE_LOW
+        });
+
+        uint256 ethBalanceBefore = user.balance;
+        uint256 usdtBalanceBefore = usdt.balanceOf(user);
+
+        uint256 amountOut = swapProvider.swapExactInputMultihop{
+            value: amountIn
+        }(
+            hops,
+            0, // amountIn ignored for ETH
+            0, // Auto-calculate minimum output
+            deadline
+        );
+
+        uint256 ethBalanceAfter = user.balance;
+        uint256 usdtBalanceAfter = usdt.balanceOf(user);
+
+        assertTrue(
+            ethBalanceBefore - ethBalanceAfter >= amountIn,
+            "ETH balance should decrease by at least amountIn"
+        );
+        assertEq(
+            usdtBalanceAfter - usdtBalanceBefore,
+            amountOut,
+            "USDT balance should increase by amountOut"
+        );
+
+        assertTrue(
+            amountOut > UNDER_CURRENT_ETH_VALUE / 2,
+            "0.5 ETH should get more than 2250 USDT"
+        );
+        assertTrue(
+            amountOut < ABOVE_CURRENT_ETH_VALUE / 2,
+            "0.5 ETH should get less than 2500 USDT"
+        );
+
+        vm.stopPrank();
+    }
+
+    function testSwapExactOutputMultihopUSDCToWETHToUSDT() public {
+        vm.startPrank(user);
+
+        uint256 amountOut = 1000 * 1e6;
+        uint256 amountInMaximum = 3000 * 1e6;
+        uint256 deadline = block.timestamp + 300;
+
+        UniswapV3SwapProvider.SwapHop[]
+            memory hops = new UniswapV3SwapProvider.SwapHop[](2);
+
+        hops[0] = UniswapV3SwapProvider.SwapHop({
+            tokenIn: MAINNET_USDC,
+            tokenOut: MAINNET_WETH,
+            fee: FEE_LOW
+        });
+
+        hops[1] = UniswapV3SwapProvider.SwapHop({
+            tokenIn: MAINNET_WETH,
+            tokenOut: MAINNET_USDT,
+            fee: FEE_LOW
+        });
+
+        usdc.approve(address(swapProvider), amountInMaximum);
+
+        uint256 usdcBalanceBefore = usdc.balanceOf(user);
+        uint256 usdtBalanceBefore = usdt.balanceOf(user);
+
+        uint256 amountIn = swapProvider.swapExactOutputMultihop(
+            hops,
+            amountOut,
+            amountInMaximum,
+            deadline
+        );
+
+        uint256 usdcBalanceAfter = usdc.balanceOf(user);
+        uint256 usdtBalanceAfter = usdt.balanceOf(user);
+
+        assertEq(
+            usdcBalanceBefore - usdcBalanceAfter,
+            amountIn,
+            "USDC balance should decrease by amountIn"
+        );
+        assertEq(
+            usdtBalanceAfter - usdtBalanceBefore,
+            amountOut,
+            "USDT balance should increase by exact amountOut"
+        );
+
+        assertTrue(
+            amountIn > 900 * 1e6,
+            "Should cost more than 900 USDC for 1000 USDT"
+        );
+        assertTrue(
+            amountIn < 1100 * 1e6,
+            "Should cost less than 1100 USDC for 1000 USDT"
+        );
+        assertTrue(
+            amountIn <= amountInMaximum,
+            "Should not exceed maximum input"
+        );
+
+        vm.stopPrank();
+    }
+
+    function testSwapExactOutputMultihopETHToUSDT() public {
+        vm.startPrank(user);
+
+        uint256 amountOut = 2000 * 1e6;
+        uint256 deadline = block.timestamp + 300;
+
+        UniswapV3SwapProvider.SwapHop[]
+            memory hops = new UniswapV3SwapProvider.SwapHop[](1);
+
+        hops[0] = UniswapV3SwapProvider.SwapHop({
+            tokenIn: address(0),
+            tokenOut: MAINNET_USDT,
+            fee: FEE_LOW
+        });
+
+        uint256 ethBalanceBefore = user.balance;
+        uint256 usdtBalanceBefore = usdt.balanceOf(user);
+
+        uint256 amountIn = swapProvider.swapExactOutputMultihop{value: 2 ether}(
+            hops,
+            amountOut,
+            0, // amountInMaximum ignored for ETH
+            deadline
+        );
+
+        uint256 ethBalanceAfter = user.balance;
+        uint256 usdtBalanceAfter = usdt.balanceOf(user);
+
+        assertEq(
+            usdtBalanceAfter - usdtBalanceBefore,
+            amountOut,
+            "USDT balance should increase by exact amountOut"
+        );
+
+        assertTrue(
+            amountIn < 1 ether,
+            "Should cost less than 1 ETH for 2000 USDT"
+        );
+        assertTrue(
+            amountIn > 0.3 ether,
+            "Should cost more than 0.3 ETH for 2000 USDT"
+        );
+
+        uint256 totalEthSpent = ethBalanceBefore - ethBalanceAfter;
+        assertTrue(
+            totalEthSpent >= amountIn,
+            "Total ETH spent should be at least amountIn plus gas"
+        );
+
+        vm.stopPrank();
+    }
+
+    function testMultihopRevertsForEmptyHops() public {
+        vm.startPrank(user);
+
+        UniswapV3SwapProvider.SwapHop[]
+            memory emptyHops = new UniswapV3SwapProvider.SwapHop[](0);
+
+        vm.expectRevert("At least 1 hop required");
+        swapProvider.swapExactInputMultihop(
+            emptyHops,
+            1 ether,
+            0,
+            block.timestamp + 300
+        );
+
+        vm.expectRevert("At least 1 hop required");
+        swapProvider.swapExactOutputMultihop(
+            emptyHops,
+            1000 * 1e6,
+            2000 * 1e6,
+            block.timestamp + 300
+        );
+
+        vm.stopPrank();
+    }
+
+    function testMultihopRevertsForInvalidPool() public {
+        vm.startPrank(user);
+
+        UniswapV3SwapProvider.SwapHop[]
+            memory hops = new UniswapV3SwapProvider.SwapHop[](1);
+
+        hops[0] = UniswapV3SwapProvider.SwapHop({
+            tokenIn: MAINNET_WETH,
+            tokenOut: MAINNET_USDC,
+            fee: 1234 // Invalid fee tier
+        });
+
+        vm.expectRevert("Invalid pool");
+        swapProvider.swapExactInputMultihop(
+            hops,
+            1 ether,
+            0,
+            block.timestamp + 300
+        );
+
+        vm.stopPrank();
+    }
+
+    function testMultihopRevertsForIdenticalTokens() public {
+        vm.startPrank(user);
+
+        UniswapV3SwapProvider.SwapHop[]
+            memory hops = new UniswapV3SwapProvider.SwapHop[](1);
+
+        hops[0] = UniswapV3SwapProvider.SwapHop({
+            tokenIn: MAINNET_WETH,
+            tokenOut: MAINNET_WETH,
+            fee: FEE_LOW
+        });
+
+        vm.expectRevert("Invalid tokens");
+        swapProvider.swapExactInputMultihop(
+            hops,
+            1 ether,
+            0,
+            block.timestamp + 300
+        );
+
+        vm.stopPrank();
+    }
+
+    function testMultihopRevertsForExpiredDeadline() public {
+        vm.startPrank(user);
+
+        UniswapV3SwapProvider.SwapHop[]
+            memory hops = new UniswapV3SwapProvider.SwapHop[](1);
+
+        hops[0] = UniswapV3SwapProvider.SwapHop({
+            tokenIn: MAINNET_WETH,
+            tokenOut: MAINNET_USDC,
+            fee: FEE_LOW
+        });
+
+        vm.expectRevert("Invalid deadline");
+        swapProvider.swapExactInputMultihop(
+            hops,
+            1 ether,
+            0,
+            block.timestamp - 1
+        );
+
+        vm.stopPrank();
+    }
+
+    function testMultihopETHSwapRevertsWithoutValue() public {
+        vm.startPrank(user);
+
+        UniswapV3SwapProvider.SwapHop[]
+            memory hops = new UniswapV3SwapProvider.SwapHop[](1);
+        hops[0] = UniswapV3SwapProvider.SwapHop({
+            tokenIn: address(0),
+            tokenOut: MAINNET_USDC,
+            fee: FEE_LOW
+        });
+
+        vm.expectRevert("Must send ETH");
+        swapProvider.swapExactInputMultihop(
+            hops,
+            1 ether,
+            0,
+            block.timestamp + 300
+        );
+
+        vm.stopPrank();
+    }
+
+    function testMultihopERC20SwapRevertsWithValue() public {
+        vm.startPrank(user);
+
+        UniswapV3SwapProvider.SwapHop[]
+            memory hops = new UniswapV3SwapProvider.SwapHop[](1);
+
+        hops[0] = UniswapV3SwapProvider.SwapHop({
+            tokenIn: MAINNET_WETH,
+            tokenOut: MAINNET_USDC,
+            fee: FEE_LOW
+        });
+
+        weth.approve(address(swapProvider), 1 ether);
+
+        vm.expectRevert("ETH not expected");
+        swapProvider.swapExactInputMultihop{value: 0.1 ether}(
+            hops,
+            1 ether,
+            0,
+            block.timestamp + 300
         );
 
         vm.stopPrank();

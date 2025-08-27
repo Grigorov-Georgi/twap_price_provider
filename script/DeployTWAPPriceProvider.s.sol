@@ -35,7 +35,7 @@ contract DeployTWAPPriceProvider is Script {
         uint32 interval = 1800;
 
         UniswapV3PoolManager.Pair[]
-            memory pairs = new UniswapV3PoolManager.Pair[](2);
+            memory pairs = new UniswapV3PoolManager.Pair[](3);
 
         // USDC/WETH 0.05% fee (most liquid pool)
         pairs[0] = UniswapV3PoolManager.Pair({
@@ -47,6 +47,13 @@ contract DeployTWAPPriceProvider is Script {
         // WETH/USDT 0.05% fee
         pairs[1] = UniswapV3PoolManager.Pair({
             tokenA: WETH,
+            tokenB: USDT,
+            fee: 500
+        });
+
+        // USDC/USDT 0.05% fee
+        pairs[2] = UniswapV3PoolManager.Pair({
+            tokenA: USDC,
             tokenB: USDT,
             fee: 500
         });
