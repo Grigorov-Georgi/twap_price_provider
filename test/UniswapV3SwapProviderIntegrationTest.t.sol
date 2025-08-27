@@ -1,0 +1,438 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.7.6;
+pragma abicoder v2;
+
+import {Test} from "forge-std/Test.sol";
+import {UniswapV3SwapProvider} from "../src/UniswapV3SwapProvider.sol";
+import {TWAPPriceProvider} from "../src/TWAPPriceProvider.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {DeployTWAPPriceProvider} from "../script/DeployTWAPPriceProvider.s.sol";
+import {DeployUniswapV3SwapProvider} from "../script/DeployUniswapV3SwapProvider.s.sol";
+import {IUniswapV3Factory} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+
+contract UniswapV3SwapProviderIntegrationTest is Test {
+    uint256 public mainnetFork;
+    UniswapV3SwapProvider public swapProvider;
+    TWAPPriceProvider public twapProvider;
+    DeployUniswapV3SwapProvider public deployer;
+
+    string MAINNET_RPC_URL = vm.envString("MAINNET_RPC_URL");
+    // Test accounts
+    address public user;
+
+    // Token contracts
+    IERC20 public weth;
+    IERC20 public usdc;
+    IERC20 public usdt;
+
+    // Mainnet addresses
+    address constant UNISWAP_V3_FACTORY =
+        0x1F98431c8aD98523631AE4a59f267346ea31F984;
+    address constant SWAP_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+
+    address constant MAINNET_WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address constant MAINNET_USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address constant MAINNET_USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+    address constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+
+    // Fee tiers
+    uint24 constant FEE_LOW = 500; // 0.05%
+    uint24 constant FEE_MEDIUM = 3000; // 0.3%
+    uint24 constant FEE_HIGH = 10000; // 1%
+
+    function setUp() public {
+        // Create fork at block 23231874 (end of august 2025) [eth price ~$4600]
+        mainnetFork = vm.createFork(MAINNET_RPC_URL, 23231874);
+        vm.selectFork(mainnetFork);
+
+        // Set up test accounts
+        user = makeAddr("USER");
+
+        // Fund accounts with ETH
+        vm.deal(user, 100 ether);
+
+        // Initialize token contracts
+        weth = IERC20(MAINNET_WETH);
+        usdc = IERC20(MAINNET_USDC);
+        usdt = IERC20(MAINNET_USDT);
+
+        // Deploy TWAP provider
+        DeployTWAPPriceProvider twapDeployer = new DeployTWAPPriceProvider();
+        twapProvider = twapDeployer.run();
+
+        // Deploy swap provider using the TWAP provider address
+        deployer = new DeployUniswapV3SwapProvider();
+        swapProvider = deployer.run(address(twapProvider));
+
+        // Deal some tokens to user for testing
+        deal(MAINNET_USDC, user, 10000 * 1e6); // 10,000 USDC
+        deal(MAINNET_USDT, user, 10000 * 1e6); // 10,000 USDT
+        deal(MAINNET_WETH, user, 50 ether); // 50 WETH
+    }
+
+    function testConstructorSetsCorrectValues() public view {
+        assertEq(swapProvider.uniswapFactory(), UNISWAP_V3_FACTORY);
+        assertEq(address(swapProvider.swapRouter()), SWAP_ROUTER);
+        assertEq(address(swapProvider.WETH9()), MAINNET_WETH);
+        assertEq(
+            address(swapProvider.twapPriceProvider()),
+            address(twapProvider)
+        );
+        assertEq(swapProvider.twapSlippageBasisPoints(), 100); // 1%
+
+        assertTrue(
+            user.balance >= 100 ether,
+            "User should have at least 100 ETH"
+        );
+        assertTrue(
+            usdc.balanceOf(user) >= 10000 * 1e6,
+            "User should have at least 10,000 USDC"
+        );
+        assertTrue(
+            usdt.balanceOf(user) >= 10000 * 1e6,
+            "User should have at least 10,000 USDT"
+        );
+        assertTrue(
+            weth.balanceOf(user) >= 50 ether,
+            "User should have at least 50 WETH"
+        );
+    }
+
+    function testPoolsAreRegisteredCorrectly() public view {
+        address pool = twapProvider.getPool(
+            MAINNET_USDC,
+            MAINNET_WETH,
+            FEE_LOW
+        );
+        assertTrue(pool != address(0), "USDC/WETH pool should be registered");
+
+        pool = twapProvider.getPool(MAINNET_WETH, MAINNET_USDT, FEE_LOW);
+        assertTrue(pool != address(0), "WETH/USDT pool should be registered");
+    }
+
+    function testSwapExactInputWETHToUSDC() public {
+        vm.startPrank(user);
+
+        uint256 amountIn = 1 ether;
+        uint256 deadline = block.timestamp + 300;
+
+        weth.approve(address(swapProvider), amountIn);
+
+        uint256 usdcBalanceBefore = usdc.balanceOf(user);
+        uint256 wethBalanceBefore = weth.balanceOf(user);
+
+        uint256 amountOut = swapProvider.swapExactInputSingleHop(
+            MAINNET_WETH,
+            MAINNET_USDC,
+            FEE_LOW,
+            amountIn,
+            0, // Auto-calculate minimum using TWAP
+            deadline
+        );
+
+        uint256 usdcBalanceAfter = usdc.balanceOf(user);
+        uint256 wethBalanceAfter = weth.balanceOf(user);
+
+        assertEq(
+            wethBalanceBefore - wethBalanceAfter,
+            amountIn,
+            "WETH balance should decrease by amountIn"
+        );
+        assertEq(
+            usdcBalanceAfter - usdcBalanceBefore,
+            amountOut,
+            "USDC balance should increase by amountOut"
+        );
+
+        assertTrue(
+            amountOut > 4400 * 1e6,
+            "1 WETH should be worth more than 4400 USDC"
+        );
+        assertTrue(
+            amountOut < 4800 * 1e6,
+            "1 WETH should be worth less than 4800 USDC"
+        );
+
+        vm.stopPrank();
+    }
+
+    function testSwapExactOutputUSDCToWETH() public {
+        vm.startPrank(user);
+
+        uint256 amountOut = 0.5 ether;
+        uint256 amountInMaximum = 3000 * 1e6;
+        uint256 deadline = block.timestamp + 300;
+
+        usdc.approve(address(swapProvider), amountInMaximum);
+
+        uint256 usdcBalanceBefore = usdc.balanceOf(user);
+        uint256 wethBalanceBefore = weth.balanceOf(user);
+
+        uint256 amountIn = swapProvider.swapExactOutputSingleHop(
+            MAINNET_USDC,
+            MAINNET_WETH,
+            FEE_LOW,
+            amountOut,
+            amountInMaximum,
+            deadline
+        );
+
+        uint256 usdcBalanceAfter = usdc.balanceOf(user);
+        uint256 wethBalanceAfter = weth.balanceOf(user);
+
+        assertEq(
+            usdcBalanceBefore - usdcBalanceAfter,
+            amountIn,
+            "USDC balance should decrease by amountIn"
+        );
+        assertEq(
+            wethBalanceAfter - wethBalanceBefore,
+            amountOut,
+            "WETH balance should increase by amountOut"
+        );
+
+        assertTrue(
+            amountIn > 2200 * 1e6,
+            "0.5 WETH should cost more than 2200 USDC"
+        );
+        assertTrue(amountIn < amountInMaximum, "Should use less than maximum");
+
+        vm.stopPrank();
+    }
+
+    function testSwapETHForUSDC() public {
+        vm.startPrank(user);
+
+        uint256 ethAmountIn = 1 ether;
+        uint256 deadline = block.timestamp + 300;
+
+        uint256 ethBalanceBefore = user.balance;
+        uint256 usdcBalanceBefore = usdc.balanceOf(user);
+
+        uint256 amountOut = swapProvider.swapExactInputSingleHop{
+            value: ethAmountIn
+        }(
+            address(0), // ETH input
+            MAINNET_USDC,
+            FEE_LOW,
+            0, // amountIn ignored for ETH
+            0, // Auto-calculate minimum using TWAP
+            deadline
+        );
+
+        uint256 ethBalanceAfter = user.balance;
+        uint256 usdcBalanceAfter = usdc.balanceOf(user);
+
+        assertTrue(
+            ethBalanceBefore - ethBalanceAfter >= ethAmountIn,
+            "ETH should be spent"
+        );
+        assertEq(
+            usdcBalanceAfter - usdcBalanceBefore,
+            amountOut,
+            "USDC balance should increase"
+        );
+
+        assertTrue(
+            amountOut > 4400 * 1e6,
+            "1 ETH should be worth more than 4400 USDC"
+        );
+
+        vm.stopPrank();
+    }
+
+    function testSwapUSDCForETH() public {
+        vm.startPrank(user);
+
+        uint256 amountIn = 3000 * 1e6;
+        uint256 deadline = block.timestamp + 300;
+
+        usdc.approve(address(swapProvider), amountIn);
+
+        uint256 ethBalanceBefore = user.balance;
+        uint256 usdcBalanceBefore = usdc.balanceOf(user);
+
+        uint256 amountOut = swapProvider.swapExactInputSingleHop(
+            MAINNET_USDC,
+            address(0), // ETH output
+            FEE_LOW,
+            amountIn,
+            0, // Auto-calculate minimum using TWAP
+            deadline
+        );
+
+        uint256 ethBalanceAfter = user.balance;
+        uint256 usdcBalanceAfter = usdc.balanceOf(user);
+
+        assertEq(
+            usdcBalanceBefore - usdcBalanceAfter,
+            amountIn,
+            "USDC should be spent"
+        );
+        assertTrue(
+            ethBalanceAfter > ethBalanceBefore,
+            "ETH balance should increase"
+        );
+
+        assertTrue(
+            amountOut > 0.5 ether,
+            "1800 USDC should get more than 0.8 ETH"
+        );
+        assertTrue(
+            amountOut < 1 ether,
+            "1800 USDC should get less than 1.2 ETH"
+        );
+
+        vm.stopPrank();
+    }
+
+    function testSwapETHForExactUSDC() public {
+        vm.startPrank(user);
+
+        uint256 amountOut = 4600 * 1e6;
+        uint256 ethMaxIn = 2 ether;
+        uint256 deadline = block.timestamp + 300;
+
+        uint256 ethBalanceBefore = user.balance;
+        uint256 usdcBalanceBefore = usdc.balanceOf(user);
+
+        uint256 amountIn = swapProvider.swapExactOutputSingleHop{
+            value: ethMaxIn
+        }(
+            address(0), // ETH input
+            MAINNET_USDC,
+            FEE_LOW,
+            amountOut,
+            0, // amountInMaximum ignored for ETH, uses msg.value
+            deadline
+        );
+
+        uint256 ethBalanceAfter = user.balance;
+        uint256 usdcBalanceAfter = usdc.balanceOf(user);
+
+        assertEq(
+            usdcBalanceAfter - usdcBalanceBefore,
+            amountOut,
+            "Should receive exact USDC amount"
+        );
+
+        assertTrue(amountIn < ethMaxIn, "Should use less than max ETH");
+        assertTrue(
+            amountIn > 0.5 ether,
+            "1500 USDC should cost more than 0.5 ETH"
+        );
+
+        uint256 ethSpent = ethBalanceBefore - ethBalanceAfter;
+        assertTrue(
+            ethSpent >= amountIn,
+            "ETH spent should be at least the input amount plus gas costs"
+        );
+
+        vm.stopPrank();
+    }
+
+    function testSwapRevertsForIdenticalTokens() public {
+        vm.startPrank(user);
+        vm.expectRevert("Invalid tokens");
+        swapProvider.swapExactInputSingleHop(
+            MAINNET_WETH,
+            MAINNET_WETH,
+            FEE_LOW,
+            1 ether,
+            0,
+            block.timestamp + 300
+        );
+        vm.stopPrank();
+    }
+
+    function testSwapRevertsForUnregisteredPair() public {
+        vm.startPrank(user);
+        vm.expectRevert("Invalid pool");
+        swapProvider.swapExactInputSingleHop(
+            MAINNET_WETH,
+            DAI,
+            FEE_LOW,
+            1 ether,
+            0,
+            block.timestamp + 300
+        );
+        vm.stopPrank();
+    }
+
+    function testSwapRevertsForExpiredDeadline() public {
+        vm.startPrank(user);
+        vm.expectRevert("Invalid deadline");
+        swapProvider.swapExactInputSingleHop(
+            MAINNET_WETH,
+            MAINNET_USDC,
+            FEE_LOW,
+            1 ether,
+            0,
+            block.timestamp - 1
+        );
+        vm.stopPrank();
+    }
+
+    function testETHSwapRevertsWithoutValue() public {
+        vm.startPrank(user);
+        vm.expectRevert("Must send ETH");
+        swapProvider.swapExactInputSingleHop(
+            address(0),
+            MAINNET_USDC,
+            FEE_LOW,
+            1 ether,
+            0,
+            block.timestamp + 300
+        );
+        vm.stopPrank();
+    }
+
+    function testERC20SwapRevertsWithValue() public {
+        vm.startPrank(user);
+        weth.approve(address(swapProvider), 1 ether);
+
+        vm.expectRevert("ETH not expected");
+        swapProvider.swapExactInputSingleHop{value: 1 ether}(
+            MAINNET_WETH,
+            MAINNET_USDC,
+            FEE_LOW,
+            1 ether,
+            0,
+            block.timestamp + 300
+        );
+        vm.stopPrank();
+    }
+
+    function testTWAPSlippageProtection() public {
+        vm.startPrank(user);
+
+        uint256 amountIn = 1 ether;
+        uint256 deadline = block.timestamp + 300;
+
+        weth.approve(address(swapProvider), amountIn);
+
+        uint256 twapQuote = twapProvider.consult(
+            MAINNET_WETH,
+            MAINNET_USDC,
+            FEE_LOW,
+            uint128(amountIn)
+        );
+
+        uint256 amountOut = swapProvider.swapExactInputSingleHop(
+            MAINNET_WETH,
+            MAINNET_USDC,
+            FEE_LOW,
+            amountIn,
+            0, // Let TWAP calculate minimum
+            deadline
+        );
+
+        uint256 slippageTolerance = (twapQuote * 100) / 10000; // 1% slippage
+        assertTrue(
+            amountOut >= twapQuote - slippageTolerance,
+            "Output should be within slippage tolerance of TWAP"
+        );
+
+        vm.stopPrank();
+    }
+}

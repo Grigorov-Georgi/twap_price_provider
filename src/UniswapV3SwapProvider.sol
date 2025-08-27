@@ -88,7 +88,6 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager {
         }
         require(amountOutMinimum > 0, "amountOutMinimum is zero");
 
-        // Handle input token (ETH or ERC20)
         if (isETHIn) {
             WETH9.deposit{value: amountIn}();
         } else {
@@ -105,13 +104,12 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager {
                 deadline: deadline,
                 amountIn: amountIn,
                 amountOutMinimum: amountOutMinimum,
-                sqrtPriceLimitX96: 0
+                sqrtPriceLimitX96: 0 // we don't need price limit if we have amountOutMinimum
             });
 
         amountOut = swapRouter.exactInputSingle(params);
         require(amountOut >= amountOutMinimum, "Insufficient amount out");
 
-        // Handle output token (ETH or ERC20)
         if (isETHOut) {
             WETH9.withdraw(amountOut);
             (bool success, ) = msg.sender.call{value: amountOut}("");
@@ -166,7 +164,6 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager {
         }
         require(amountInMaximum > 0, "amountInMaximum is zero");
 
-        // Handle input token (ETH or ERC20)
         if (isETHIn) {
             WETH9.deposit{value: amountInMaximum}();
         } else {
@@ -183,14 +180,13 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager {
                 deadline: deadline,
                 amountOut: amountOut,
                 amountInMaximum: amountInMaximum,
-                sqrtPriceLimitX96: 0
+                sqrtPriceLimitX96: 0 // we don't need price limit if we have amountInMaximum
             });
 
         amountIn = swapRouter.exactOutputSingle(params);
 
-        // Handle refunds and output
+        // Refund unused ETH or ERC20 tokens
         if (isETHIn && amountIn < amountInMaximum) {
-            // Refund unused ETH
             WETH9.withdraw(amountInMaximum - amountIn);
             (bool success, ) = msg.sender.call{
                 value: amountInMaximum - amountIn
@@ -201,7 +197,6 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager {
             _safeTransfer(tokenIn, amountInMaximum - amountIn);
         }
 
-        // Handle ETH output
         if (isETHOut) {
             WETH9.withdraw(amountOut);
             (bool success, ) = msg.sender.call{value: amountOut}("");
@@ -252,6 +247,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager {
             uint128(amountIn)
         );
 
+        // Specific order of operations is important here to avoid integer division data loss
         return
             (twapPrice * (MAX_BASIS_POINTS - twapSlippageBasisPoints)) /
             MAX_BASIS_POINTS;
@@ -278,6 +274,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager {
             uint128(amountOut)
         );
 
+        // Specific order of operations is important here to avoid integer division data loss
         return
             (twapPrice * (MAX_BASIS_POINTS + twapSlippageBasisPoints)) /
             MAX_BASIS_POINTS;
