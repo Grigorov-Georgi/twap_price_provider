@@ -17,12 +17,25 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Initialize submodules (fallback)
+        run: |
+          git submodule update --init --recursive
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Show Forge version
         run: |
           forge --version
+
+      - name: Check submodules
+        run: |
+          echo "Checking submodules..."
+          ls -la lib/
+          echo "Checking if dependencies exist..."
+          ls -la lib/openzeppelin-contracts/contracts/token/ERC20/ || echo "OpenZeppelin not found"
+          ls -la lib/v3-core/contracts/interfaces/ || echo "v3-core not found"
+          ls -la lib/v3-periphery/contracts/interfaces/ || echo "v3-periphery not found"
 
       - name: Run Forge fmt
         run: |
