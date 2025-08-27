@@ -45,9 +45,27 @@ A comprehensive swap contract that provides secure token swapping with built-in 
 
 ## Tests
 
+### Prerequisites
+
+Before running tests, you need to set up environment variables:
+
+1. Create a `.env` file in the project root:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Add your mainnet RPC URL to the `.env` file:
+   ```
+   MAINNET_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY
+   ```
+
+### Running Tests
+
 ```bash
 forge install && forge test
 ```
+
+**Note**: Tests require a mainnet RPC URL because they fork mainnet at a specific block to test against real Uniswap V3 pools and token contracts.
 
 ## Deployment
 
