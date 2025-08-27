@@ -67,6 +67,8 @@ forge install && forge test
 
 **Note**: Tests require a mainnet RPC URL because they fork mainnet at a specific block to test against real Uniswap V3 pools and token contracts.
 
+**CI/CD Limitation**: The automated tests in GitHub Actions are currently not working because they require an Ethereum node provider API key. To enable CI/CD, add your `MAINNET_RPC_URL` as a repository secret in GitHub Actions.
+
 ## Deployment
 
 Use the provided deployment scripts:
