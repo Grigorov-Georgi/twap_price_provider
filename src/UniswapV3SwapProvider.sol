@@ -14,7 +14,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager {
     ITWAPPriceProvider public immutable twapPriceProvider;
     IWETH9 public immutable WETH9;
 
-    uint256 public twapSlippageBasisPoints = 100; // 1%
+    uint256 public immutable twapSlippageBasisPoints;
     uint256 private constant MAX_BASIS_POINTS = 10000; // 100%
 
     struct SwapHop {
@@ -122,8 +122,8 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager {
                 sqrtPriceLimitX96: 0 // we don't need price limit if we have amountOutMinimum
             });
 
+        // will revert if amountOut < amountOutMinimum
         amountOut = swapRouter.exactInputSingle(params);
-        require(amountOut >= amountOutMinimum, "Insufficient amount out");
 
         if (isETHOut) {
             WETH9.withdraw(amountOut);
@@ -203,6 +203,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager {
                 sqrtPriceLimitX96: 0 // we don't need price limit if we have amountInMaximum
             });
 
+        // reverts if amountIn > amountInMaximum
         amountIn = swapRouter.exactOutputSingle(params);
 
         // Refund unused ETH or ERC20 tokens
@@ -291,8 +292,8 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager {
                 amountOutMinimum: amountOutMinimum
             });
 
+        // will revert if amountOut < amountOutMinimum
         amountOut = swapRouter.exactInput(params);
-        require(amountOut >= amountOutMinimum, "Insufficient amount out");
 
         if (isETHOut) {
             WETH9.withdraw(amountOut);
@@ -368,6 +369,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager {
                 amountInMaximum: amountInMaximum
             });
 
+        // reverts if amountIn > amountInMaximum
         amountIn = swapRouter.exactOutput(params);
 
         if (isETHIn && amountIn < amountInMaximum) {
