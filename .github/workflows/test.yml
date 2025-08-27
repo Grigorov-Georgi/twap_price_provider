@@ -28,10 +28,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          forge install --no-commit foundry-rs/forge-std
-          forge install --no-commit OpenZeppelin/openzeppelin-contracts
-          forge install --no-commit Uniswap/v3-core
-          forge install --no-commit Uniswap/v3-periphery
+          forge install foundry-rs/forge-std
+          forge install OpenZeppelin/openzeppelin-contracts
+          forge install Uniswap/v3-core
+          forge install Uniswap/v3-periphery
 
       - name: Check dependencies
         run: |
