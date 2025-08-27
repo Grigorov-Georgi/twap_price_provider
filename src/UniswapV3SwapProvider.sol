@@ -8,20 +8,15 @@ import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/Transfer
 import {UniswapV3PoolManager} from "./UniswapV3PoolManager.sol";
 import {ITWAPPriceProvider} from "./interfaces/ITWAPPriceProvider.sol";
 import {IWETH9} from "./interfaces/IWETH9.sol";
+import {IUniswapV3SwapProvider} from "./interfaces/IUniswapV3SwapProvider.sol";
 
-contract UniswapV3SwapProvider is UniswapV3PoolManager {
+contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
     ISwapRouter public immutable swapRouter;
     ITWAPPriceProvider public immutable twapPriceProvider;
     IWETH9 public immutable WETH9;
 
     uint256 public immutable twapSlippageBasisPoints;
     uint256 private constant MAX_BASIS_POINTS = 10000; // 100%
-
-    struct SwapHop {
-        address tokenIn;
-        address tokenOut;
-        uint24 fee;
-    }
 
     /**
      * @notice Initializes the UniswapV3SwapProvider contract
@@ -70,7 +65,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager {
         uint256 amountIn,
         uint256 amountOutMinimum,
         uint256 deadline
-    ) external payable returns (uint256 amountOut) {
+    ) external payable override returns (uint256 amountOut) {
         bool isETHIn = tokenIn == address(0);
         bool isETHOut = tokenOut == address(0);
 
@@ -151,7 +146,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager {
         uint256 amountOut,
         uint256 amountInMaximum,
         uint256 deadline
-    ) external payable returns (uint256 amountIn) {
+    ) external payable override returns (uint256 amountIn) {
         bool isETHIn = tokenIn == address(0);
         bool isETHOut = tokenOut == address(0);
 
@@ -240,7 +235,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager {
         uint256 amountIn,
         uint256 amountOutMinimum,
         uint256 deadline
-    ) external payable returns (uint256 amountOut) {
+    ) external payable override returns (uint256 amountOut) {
         require(hops.length > 0, "At least 1 hop required");
         require(deadline >= block.timestamp, "Invalid deadline");
 
@@ -317,7 +312,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager {
         uint256 amountOut,
         uint256 amountInMaximum,
         uint256 deadline
-    ) external payable returns (uint256 amountIn) {
+    ) external payable override returns (uint256 amountIn) {
         require(hops.length > 0, "At least 1 hop required");
         require(deadline >= block.timestamp, "Invalid deadline");
 

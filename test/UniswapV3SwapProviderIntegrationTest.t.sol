@@ -9,6 +9,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {DeployTWAPPriceProvider} from "../script/DeployTWAPPriceProvider.s.sol";
 import {DeployUniswapV3SwapProvider} from "../script/DeployUniswapV3SwapProvider.s.sol";
 import {IUniswapV3Factory} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import {IUniswapV3SwapProvider} from "../src/interfaces/IUniswapV3SwapProvider.sol";
 
 contract UniswapV3SwapProviderIntegrationTest is Test {
     uint256 public mainnetFork;
@@ -445,16 +446,16 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
         uint256 amountIn = 1 ether;
         uint256 deadline = block.timestamp + 300;
 
-        UniswapV3SwapProvider.SwapHop[]
-            memory hops = new UniswapV3SwapProvider.SwapHop[](2);
+        IUniswapV3SwapProvider.SwapHop[]
+            memory hops = new IUniswapV3SwapProvider.SwapHop[](2);
 
-        hops[0] = UniswapV3SwapProvider.SwapHop({
+        hops[0] = IUniswapV3SwapProvider.SwapHop({
             tokenIn: MAINNET_WETH,
             tokenOut: MAINNET_USDC,
             fee: FEE_LOW
         });
 
-        hops[1] = UniswapV3SwapProvider.SwapHop({
+        hops[1] = IUniswapV3SwapProvider.SwapHop({
             tokenIn: MAINNET_USDC,
             tokenOut: MAINNET_USDT,
             fee: FEE_LOW
@@ -504,16 +505,16 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
         uint256 amountIn = 0.5 ether;
         uint256 deadline = block.timestamp + 300;
 
-        UniswapV3SwapProvider.SwapHop[]
-            memory hops = new UniswapV3SwapProvider.SwapHop[](2);
+        IUniswapV3SwapProvider.SwapHop[]
+            memory hops = new IUniswapV3SwapProvider.SwapHop[](2);
 
-        hops[0] = UniswapV3SwapProvider.SwapHop({
+        hops[0] = IUniswapV3SwapProvider.SwapHop({
             tokenIn: address(0),
             tokenOut: MAINNET_USDC,
             fee: FEE_LOW
         });
 
-        hops[1] = UniswapV3SwapProvider.SwapHop({
+        hops[1] = IUniswapV3SwapProvider.SwapHop({
             tokenIn: MAINNET_USDC,
             tokenOut: MAINNET_USDT,
             fee: FEE_LOW
@@ -563,16 +564,16 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
         uint256 amountInMaximum = 3000 * 1e6;
         uint256 deadline = block.timestamp + 300;
 
-        UniswapV3SwapProvider.SwapHop[]
-            memory hops = new UniswapV3SwapProvider.SwapHop[](2);
+        IUniswapV3SwapProvider.SwapHop[]
+            memory hops = new IUniswapV3SwapProvider.SwapHop[](2);
 
-        hops[0] = UniswapV3SwapProvider.SwapHop({
+        hops[0] = IUniswapV3SwapProvider.SwapHop({
             tokenIn: MAINNET_USDC,
             tokenOut: MAINNET_WETH,
             fee: FEE_LOW
         });
 
-        hops[1] = UniswapV3SwapProvider.SwapHop({
+        hops[1] = IUniswapV3SwapProvider.SwapHop({
             tokenIn: MAINNET_WETH,
             tokenOut: MAINNET_USDT,
             fee: FEE_LOW
@@ -626,10 +627,10 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
         uint256 amountOut = 2000 * 1e6;
         uint256 deadline = block.timestamp + 300;
 
-        UniswapV3SwapProvider.SwapHop[]
-            memory hops = new UniswapV3SwapProvider.SwapHop[](1);
+        IUniswapV3SwapProvider.SwapHop[]
+            memory hops = new IUniswapV3SwapProvider.SwapHop[](1);
 
-        hops[0] = UniswapV3SwapProvider.SwapHop({
+        hops[0] = IUniswapV3SwapProvider.SwapHop({
             tokenIn: address(0),
             tokenOut: MAINNET_USDT,
             fee: FEE_LOW
@@ -675,8 +676,8 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
     function testMultihopRevertsForEmptyHops() public {
         vm.startPrank(user);
 
-        UniswapV3SwapProvider.SwapHop[]
-            memory emptyHops = new UniswapV3SwapProvider.SwapHop[](0);
+        IUniswapV3SwapProvider.SwapHop[]
+            memory emptyHops = new IUniswapV3SwapProvider.SwapHop[](0);
 
         vm.expectRevert("At least 1 hop required");
         swapProvider.swapExactInputMultihop(
@@ -700,10 +701,10 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
     function testMultihopRevertsForInvalidPool() public {
         vm.startPrank(user);
 
-        UniswapV3SwapProvider.SwapHop[]
-            memory hops = new UniswapV3SwapProvider.SwapHop[](1);
+        IUniswapV3SwapProvider.SwapHop[]
+            memory hops = new IUniswapV3SwapProvider.SwapHop[](1);
 
-        hops[0] = UniswapV3SwapProvider.SwapHop({
+        hops[0] = IUniswapV3SwapProvider.SwapHop({
             tokenIn: MAINNET_WETH,
             tokenOut: MAINNET_USDC,
             fee: 1234 // Invalid fee tier
@@ -723,10 +724,10 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
     function testMultihopRevertsForIdenticalTokens() public {
         vm.startPrank(user);
 
-        UniswapV3SwapProvider.SwapHop[]
-            memory hops = new UniswapV3SwapProvider.SwapHop[](1);
+        IUniswapV3SwapProvider.SwapHop[]
+            memory hops = new IUniswapV3SwapProvider.SwapHop[](1);
 
-        hops[0] = UniswapV3SwapProvider.SwapHop({
+        hops[0] = IUniswapV3SwapProvider.SwapHop({
             tokenIn: MAINNET_WETH,
             tokenOut: MAINNET_WETH,
             fee: FEE_LOW
@@ -746,10 +747,10 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
     function testMultihopRevertsForExpiredDeadline() public {
         vm.startPrank(user);
 
-        UniswapV3SwapProvider.SwapHop[]
-            memory hops = new UniswapV3SwapProvider.SwapHop[](1);
+        IUniswapV3SwapProvider.SwapHop[]
+            memory hops = new IUniswapV3SwapProvider.SwapHop[](1);
 
-        hops[0] = UniswapV3SwapProvider.SwapHop({
+        hops[0] = IUniswapV3SwapProvider.SwapHop({
             tokenIn: MAINNET_WETH,
             tokenOut: MAINNET_USDC,
             fee: FEE_LOW
@@ -769,9 +770,9 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
     function testMultihopETHSwapRevertsWithoutValue() public {
         vm.startPrank(user);
 
-        UniswapV3SwapProvider.SwapHop[]
-            memory hops = new UniswapV3SwapProvider.SwapHop[](1);
-        hops[0] = UniswapV3SwapProvider.SwapHop({
+        IUniswapV3SwapProvider.SwapHop[]
+            memory hops = new IUniswapV3SwapProvider.SwapHop[](1);
+        hops[0] = IUniswapV3SwapProvider.SwapHop({
             tokenIn: address(0),
             tokenOut: MAINNET_USDC,
             fee: FEE_LOW
@@ -791,10 +792,10 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
     function testMultihopERC20SwapRevertsWithValue() public {
         vm.startPrank(user);
 
-        UniswapV3SwapProvider.SwapHop[]
-            memory hops = new UniswapV3SwapProvider.SwapHop[](1);
+        IUniswapV3SwapProvider.SwapHop[]
+            memory hops = new IUniswapV3SwapProvider.SwapHop[](1);
 
-        hops[0] = UniswapV3SwapProvider.SwapHop({
+        hops[0] = IUniswapV3SwapProvider.SwapHop({
             tokenIn: MAINNET_WETH,
             tokenOut: MAINNET_USDC,
             fee: FEE_LOW
