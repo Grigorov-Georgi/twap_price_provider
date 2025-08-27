@@ -17,10 +17,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Initialize submodules (fallback)
-        run: |
-          git submodule update --init --recursive
-
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -30,9 +26,16 @@ jobs:
         run: |
           forge --version
 
-      - name: Check submodules
+      - name: Install dependencies
         run: |
-          echo "Checking submodules..."
+          forge install --no-commit foundry-rs/forge-std
+          forge install --no-commit OpenZeppelin/openzeppelin-contracts
+          forge install --no-commit Uniswap/v3-core
+          forge install --no-commit Uniswap/v3-periphery
+
+      - name: Check dependencies
+        run: |
+          echo "Checking dependencies..."
           ls -la lib/
           echo "Checking if dependencies exist..."
           ls -la lib/openzeppelin-contracts/contracts/token/ERC20/ || echo "OpenZeppelin not found"
