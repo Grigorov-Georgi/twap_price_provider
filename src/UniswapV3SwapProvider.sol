@@ -36,10 +36,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
         IWETH9 _weth9
     ) UniswapV3PoolManager(_factory, pairs) {
         require(address(_swapRouter) != address(0), "Invalid swap router");
-        require(
-            address(_twapPriceProvider) != address(0),
-            "Invalid TWAP provider"
-        );
+        require(address(_twapPriceProvider) != address(0), "Invalid TWAP provider");
         require(address(_weth9) != address(0), "Invalid WETH address");
 
         swapRouter = _swapRouter;
@@ -82,19 +79,11 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
         }
 
         _validateSwapParams(tokenIn, tokenOut, fee, deadline);
-        require(
-            amountIn > 0 && amountIn <= type(uint128).max,
-            "Invalid amount in"
-        );
+        require(amountIn > 0 && amountIn <= type(uint128).max, "Invalid amount in");
 
         // Auto-calculate minimum output using TWAP + slippage if not provided
         if (amountOutMinimum == 0) {
-            amountOutMinimum = _twapMinOutSingleHop(
-                tokenIn,
-                tokenOut,
-                fee,
-                amountIn
-            );
+            amountOutMinimum = _twapMinOutSingleHop(tokenIn, tokenOut, fee, amountIn);
         }
         require(amountOutMinimum > 0, "amountOutMinimum is zero");
 
@@ -105,24 +94,23 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
         }
         _safeApprove(tokenIn, amountIn);
 
-        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
-            .ExactInputSingleParams({
-                tokenIn: tokenIn,
-                tokenOut: tokenOut,
-                fee: fee,
-                recipient: isETHOut ? address(this) : msg.sender,
-                deadline: deadline,
-                amountIn: amountIn,
-                amountOutMinimum: amountOutMinimum,
-                sqrtPriceLimitX96: 0 // we don't need price limit if we have amountOutMinimum
-            });
+        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            fee: fee,
+            recipient: isETHOut ? address(this) : msg.sender,
+            deadline: deadline,
+            amountIn: amountIn,
+            amountOutMinimum: amountOutMinimum,
+            sqrtPriceLimitX96: 0 // we don't need price limit if we have amountOutMinimum
+        });
 
         // will revert if amountOut < amountOutMinimum
         amountOut = swapRouter.exactInputSingle(params);
 
         if (isETHOut) {
             WETH9.withdraw(amountOut);
-            (bool success, ) = msg.sender.call{value: amountOut}("");
+            (bool success,) = msg.sender.call{value: amountOut}("");
             require(success, "ETH transfer failed");
         }
 
@@ -163,19 +151,11 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
         }
 
         _validateSwapParams(tokenIn, tokenOut, fee, deadline);
-        require(
-            amountOut > 0 && amountOut <= type(uint128).max,
-            "Invalid amount out"
-        );
+        require(amountOut > 0 && amountOut <= type(uint128).max, "Invalid amount out");
 
         // Auto-calculate maximum input using TWAP + slippage if not provided
         if (amountInMaximum == 0) {
-            amountInMaximum = _twapMaxInSingleHop(
-                tokenIn,
-                tokenOut,
-                fee,
-                amountOut
-            );
+            amountInMaximum = _twapMaxInSingleHop(tokenIn, tokenOut, fee, amountOut);
         }
         require(amountInMaximum > 0, "amountInMaximum is zero");
 
@@ -186,17 +166,16 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
         }
         _safeApprove(tokenIn, amountInMaximum);
 
-        ISwapRouter.ExactOutputSingleParams memory params = ISwapRouter
-            .ExactOutputSingleParams({
-                tokenIn: tokenIn,
-                tokenOut: tokenOut,
-                fee: fee,
-                recipient: isETHOut ? address(this) : msg.sender,
-                deadline: deadline,
-                amountOut: amountOut,
-                amountInMaximum: amountInMaximum,
-                sqrtPriceLimitX96: 0 // we don't need price limit if we have amountInMaximum
-            });
+        ISwapRouter.ExactOutputSingleParams memory params = ISwapRouter.ExactOutputSingleParams({
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            fee: fee,
+            recipient: isETHOut ? address(this) : msg.sender,
+            deadline: deadline,
+            amountOut: amountOut,
+            amountInMaximum: amountInMaximum,
+            sqrtPriceLimitX96: 0 // we don't need price limit if we have amountInMaximum
+        });
 
         // reverts if amountIn > amountInMaximum
         amountIn = swapRouter.exactOutputSingle(params);
@@ -204,9 +183,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
         // Refund unused ETH or ERC20 tokens
         if (isETHIn && amountIn < amountInMaximum) {
             WETH9.withdraw(amountInMaximum - amountIn);
-            (bool success, ) = msg.sender.call{
-                value: amountInMaximum - amountIn
-            }("");
+            (bool success,) = msg.sender.call{value: amountInMaximum - amountIn}("");
             require(success, "ETH refund failed");
         } else if (!isETHIn && amountIn < amountInMaximum) {
             // Refund unused ERC20 tokens
@@ -215,7 +192,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
 
         if (isETHOut) {
             WETH9.withdraw(amountOut);
-            (bool success, ) = msg.sender.call{value: amountOut}("");
+            (bool success,) = msg.sender.call{value: amountOut}("");
             require(success, "ETH transfer failed");
         }
 
@@ -258,10 +235,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
 
         _validateHops(hops);
 
-        require(
-            amountIn > 0 && amountIn <= type(uint128).max,
-            "Invalid amount in"
-        );
+        require(amountIn > 0 && amountIn <= type(uint128).max, "Invalid amount in");
 
         // Auto-calculate minimum output using TWAP + slippage if not provided
         if (amountOutMinimum == 0) {
@@ -278,21 +252,20 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
 
         bytes memory path = _buildPath(hops);
 
-        ISwapRouter.ExactInputParams memory params = ISwapRouter
-            .ExactInputParams({
-                path: path,
-                recipient: isETHOut ? address(this) : msg.sender,
-                deadline: deadline,
-                amountIn: amountIn,
-                amountOutMinimum: amountOutMinimum
-            });
+        ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
+            path: path,
+            recipient: isETHOut ? address(this) : msg.sender,
+            deadline: deadline,
+            amountIn: amountIn,
+            amountOutMinimum: amountOutMinimum
+        });
 
         // will revert if amountOut < amountOutMinimum
         amountOut = swapRouter.exactInput(params);
 
         if (isETHOut) {
             WETH9.withdraw(amountOut);
-            (bool success, ) = msg.sender.call{value: amountOut}("");
+            (bool success,) = msg.sender.call{value: amountOut}("");
             require(success, "ETH transfer failed");
         }
 
@@ -335,10 +308,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
 
         _validateHops(hops);
 
-        require(
-            amountOut > 0 && amountOut <= type(uint128).max,
-            "Invalid amount out"
-        );
+        require(amountOut > 0 && amountOut <= type(uint128).max, "Invalid amount out");
 
         // Auto-calculate maximum input using TWAP + slippage if not provided
         if (amountInMaximum == 0) {
@@ -355,23 +325,20 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
 
         bytes memory path = _buildReversedPath(hops);
 
-        ISwapRouter.ExactOutputParams memory params = ISwapRouter
-            .ExactOutputParams({
-                path: path,
-                recipient: isETHOut ? address(this) : msg.sender,
-                deadline: deadline,
-                amountOut: amountOut,
-                amountInMaximum: amountInMaximum
-            });
+        ISwapRouter.ExactOutputParams memory params = ISwapRouter.ExactOutputParams({
+            path: path,
+            recipient: isETHOut ? address(this) : msg.sender,
+            deadline: deadline,
+            amountOut: amountOut,
+            amountInMaximum: amountInMaximum
+        });
 
         // reverts if amountIn > amountInMaximum
         amountIn = swapRouter.exactOutput(params);
 
         if (isETHIn && amountIn < amountInMaximum) {
             WETH9.withdraw(amountInMaximum - amountIn);
-            (bool success, ) = msg.sender.call{
-                value: amountInMaximum - amountIn
-            }("");
+            (bool success,) = msg.sender.call{value: amountInMaximum - amountIn}("");
             require(success, "ETH refund failed");
         } else if (!isETHIn && amountIn < amountInMaximum) {
             _safeTransfer(tokenIn, amountInMaximum - amountIn);
@@ -379,7 +346,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
 
         if (isETHOut) {
             WETH9.withdraw(amountOut);
-            (bool success, ) = msg.sender.call{value: amountOut}("");
+            (bool success,) = msg.sender.call{value: amountOut}("");
             require(success, "ETH transfer failed");
         }
 
@@ -388,12 +355,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
 
     /// @dev Safely transfers tokens from user to this contract
     function _safeTransferFrom(address tokenIn, uint256 amount) internal {
-        TransferHelper.safeTransferFrom(
-            tokenIn,
-            msg.sender,
-            address(this),
-            amount
-        );
+        TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amount);
     }
 
     /// @dev Safely transfers tokens from this contract to user
@@ -418,14 +380,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
             address hopTokenOut = _normalizeToken(hops[i].tokenOut);
             require(hopTokenIn != hopTokenOut, "Invalid tokens");
             require(hops[i].fee > 0, "Invalid fee");
-            require(
-                twapPriceProvider.getPool(
-                    hopTokenIn,
-                    hopTokenOut,
-                    hops[i].fee
-                ) != address(0),
-                "Invalid pool"
-            );
+            require(twapPriceProvider.getPool(hopTokenIn, hopTokenOut, hops[i].fee) != address(0), "Invalid pool");
         }
     }
 
@@ -437,23 +392,15 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
      * @param amountIn Input amount
      * @return Minimum output amount accounting for slippage
      */
-    function _twapMinOutSingleHop(
-        address tokenIn,
-        address tokenOut,
-        uint24 fee,
-        uint256 amountIn
-    ) internal view returns (uint256) {
-        uint256 twapPrice = twapPriceProvider.consult(
-            tokenIn,
-            tokenOut,
-            fee,
-            uint128(amountIn)
-        );
+    function _twapMinOutSingleHop(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn)
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 twapPrice = twapPriceProvider.consult(tokenIn, tokenOut, fee, uint128(amountIn));
 
         // Specific order of operations is important here to avoid integer division data loss
-        return
-            (twapPrice * (MAX_BASIS_POINTS - twapSlippageBasisPoints)) /
-            MAX_BASIS_POINTS;
+        return (twapPrice * (MAX_BASIS_POINTS - twapSlippageBasisPoints)) / MAX_BASIS_POINTS;
     }
 
     /**
@@ -464,23 +411,15 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
      * @param amountOut Desired output amount
      * @return Maximum input amount accounting for slippage
      */
-    function _twapMaxInSingleHop(
-        address tokenIn,
-        address tokenOut,
-        uint24 fee,
-        uint256 amountOut
-    ) internal view returns (uint256) {
-        uint256 twapPrice = twapPriceProvider.consult(
-            tokenOut,
-            tokenIn,
-            fee,
-            uint128(amountOut)
-        );
+    function _twapMaxInSingleHop(address tokenIn, address tokenOut, uint24 fee, uint256 amountOut)
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 twapPrice = twapPriceProvider.consult(tokenOut, tokenIn, fee, uint128(amountOut));
 
         // Specific order of operations is important here to avoid integer division data loss
-        return
-            (twapPrice * (MAX_BASIS_POINTS + twapSlippageBasisPoints)) /
-            MAX_BASIS_POINTS;
+        return (twapPrice * (MAX_BASIS_POINTS + twapSlippageBasisPoints)) / MAX_BASIS_POINTS;
     }
 
     /**
@@ -489,10 +428,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
      * @param amountIn Input amount
      * @return Minimum output amount accounting for slippage
      */
-    function _twapMinOutMultihop(
-        SwapHop[] calldata hops,
-        uint256 amountIn
-    ) internal view returns (uint256) {
+    function _twapMinOutMultihop(SwapHop[] calldata hops, uint256 amountIn) internal view returns (uint256) {
         uint256 curTwapPrice = amountIn;
 
         for (uint256 i = 0; i < hops.length; i++) {
@@ -501,17 +437,10 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
             address tokenIn = _normalizeToken(hops[i].tokenIn);
             address tokenOut = _normalizeToken(hops[i].tokenOut);
 
-            curTwapPrice = twapPriceProvider.consult(
-                tokenIn,
-                tokenOut,
-                hops[i].fee,
-                uint128(curTwapPrice)
-            );
+            curTwapPrice = twapPriceProvider.consult(tokenIn, tokenOut, hops[i].fee, uint128(curTwapPrice));
         }
 
-        return
-            (curTwapPrice * (MAX_BASIS_POINTS - twapSlippageBasisPoints)) /
-            MAX_BASIS_POINTS;
+        return (curTwapPrice * (MAX_BASIS_POINTS - twapSlippageBasisPoints)) / MAX_BASIS_POINTS;
     }
 
     /**
@@ -520,10 +449,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
      * @param amountOut The amount of output tokens desired
      * @return Maximum input amount accounting for slippage
      */
-    function _twapMaxInMultihop(
-        SwapHop[] calldata hops,
-        uint256 amountOut
-    ) internal view returns (uint256) {
+    function _twapMaxInMultihop(SwapHop[] calldata hops, uint256 amountOut) internal view returns (uint256) {
         uint256 curTwapPrice = amountOut;
 
         uint256 i = hops.length;
@@ -534,17 +460,10 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
             address tokenIn = _normalizeToken(hops[i].tokenIn);
             address tokenOut = _normalizeToken(hops[i].tokenOut);
 
-            curTwapPrice = twapPriceProvider.consult(
-                tokenOut,
-                tokenIn,
-                hops[i].fee,
-                uint128(curTwapPrice)
-            );
+            curTwapPrice = twapPriceProvider.consult(tokenOut, tokenIn, hops[i].fee, uint128(curTwapPrice));
         }
 
-        return
-            (curTwapPrice * (MAX_BASIS_POINTS + twapSlippageBasisPoints)) /
-            MAX_BASIS_POINTS;
+        return (curTwapPrice * (MAX_BASIS_POINTS + twapSlippageBasisPoints)) / MAX_BASIS_POINTS;
     }
 
     /**
@@ -552,9 +471,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
      * @param hops Array of swap hops defining the path
      * @return path The encoded swap path for Uniswap V3
      */
-    function _buildPath(
-        SwapHop[] calldata hops
-    ) internal view returns (bytes memory path) {
+    function _buildPath(SwapHop[] calldata hops) internal view returns (bytes memory path) {
         require(hops.length > 0, "Empty hops array");
 
         address firstToken = _normalizeToken(hops[0].tokenIn);
@@ -571,9 +488,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
      * @param hops Array of swap hops defining the path
      * @return path The encoded reversed swap path for Uniswap V3
      */
-    function _buildReversedPath(
-        SwapHop[] calldata hops
-    ) internal view returns (bytes memory path) {
+    function _buildReversedPath(SwapHop[] calldata hops) internal view returns (bytes memory path) {
         require(hops.length > 0, "Empty hops array");
 
         address lastToken = _normalizeToken(hops[hops.length - 1].tokenOut);
@@ -594,19 +509,11 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
      * @param fee Pool fee tier
      * @param deadline Transaction deadline
      */
-    function _validateSwapParams(
-        address tokenIn,
-        address tokenOut,
-        uint24 fee,
-        uint256 deadline
-    ) internal view {
+    function _validateSwapParams(address tokenIn, address tokenOut, uint24 fee, uint256 deadline) internal view {
         require(tokenIn != tokenOut, "Invalid tokens");
         require(fee > 0, "Invalid fee");
         require(deadline >= block.timestamp, "Invalid deadline");
-        require(
-            twapPriceProvider.getPool(tokenIn, tokenOut, fee) != address(0),
-            "Invalid pool"
-        );
+        require(twapPriceProvider.getPool(tokenIn, tokenOut, fee) != address(0), "Invalid pool");
     }
 
     receive() external payable {

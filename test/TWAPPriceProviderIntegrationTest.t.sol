@@ -18,8 +18,7 @@ contract TWAPPriceProviderIntegrationTest is Test {
     string MAINNET_RPC_URL = vm.envString("MAINNET_RPC_URL");
 
     // Mainnet addresses
-    address constant UNISWAP_V3_FACTORY =
-        0x1F98431c8aD98523631AE4a59f267346ea31F984;
+    address constant UNISWAP_V3_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
     address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
@@ -70,14 +69,8 @@ contract TWAPPriceProviderIntegrationTest is Test {
         );
 
         assertTrue(amountOut > 0, "Should return positive amount");
-        assertTrue(
-            amountOut > 1000 * 1e6,
-            "1 WETH should be worth more than 1000 USDC"
-        );
-        assertTrue(
-            amountOut < 2000 * 1e6,
-            "1 WETH should be worth less than 2000 USDC"
-        );
+        assertTrue(amountOut > 1000 * 1e6, "1 WETH should be worth more than 1000 USDC");
+        assertTrue(amountOut < 2000 * 1e6, "1 WETH should be worth less than 2000 USDC");
     }
 
     function testConsultUSDCToWETH() public view {
@@ -91,14 +84,8 @@ contract TWAPPriceProviderIntegrationTest is Test {
         );
 
         assertTrue(amountOut > 0, "Should return positive amount");
-        assertTrue(
-            amountOut > 1 ether,
-            "2000 USDC should be worth more than 1 WETH"
-        );
-        assertTrue(
-            amountOut < 2 ether,
-            "2000 USDC should be worth less than 2 WETH"
-        );
+        assertTrue(amountOut > 1 ether, "2000 USDC should be worth more than 1 WETH");
+        assertTrue(amountOut < 2 ether, "2000 USDC should be worth less than 2 WETH");
     }
 
     function testConsultWETHToUSDT() public view {
@@ -112,14 +99,8 @@ contract TWAPPriceProviderIntegrationTest is Test {
         );
 
         assertTrue(amountOut > 0, "Should return positive amount");
-        assertTrue(
-            amountOut > 1000 * 1e6,
-            "1 WETH should be worth more than 1000 USDT"
-        );
-        assertTrue(
-            amountOut < 2000 * 1e6,
-            "1 WETH should be worth less than 2000 USDT"
-        );
+        assertTrue(amountOut > 1000 * 1e6, "1 WETH should be worth more than 1000 USDT");
+        assertTrue(amountOut < 2000 * 1e6, "1 WETH should be worth less than 2000 USDT");
     }
 
     function testConsultUSDTToWETH() public view {
@@ -133,14 +114,8 @@ contract TWAPPriceProviderIntegrationTest is Test {
         );
 
         assertTrue(amountOut > 0, "Should return positive amount");
-        assertTrue(
-            amountOut > 1 ether,
-            "2000 USDT should be worth more than 1 WETH"
-        );
-        assertTrue(
-            amountOut < 2 ether,
-            "2000 USDT should be worth less than 2 WETH"
-        );
+        assertTrue(amountOut > 1 ether, "2000 USDT should be worth more than 1 WETH");
+        assertTrue(amountOut < 2 ether, "2000 USDT should be worth less than 2 WETH");
     }
 
     function testConsultRevertsForIdenticalTokens() public {
@@ -223,12 +198,7 @@ contract TWAPPriceProviderIntegrationTest is Test {
         uint256 result1 = priceProvider.consult(WETH, USDT, FEE_LOW, amountIn);
 
         // Test USDT -> WETH with equivalent amount
-        uint256 result2 = priceProvider.consult(
-            USDT,
-            WETH,
-            FEE_LOW,
-            uint128(result1)
-        );
+        uint256 result2 = priceProvider.consult(USDT, WETH, FEE_LOW, uint128(result1));
 
         // Should be able to convert back with minimal loss
         uint256 tolerance = amountIn / 100; // 1% tolerance

@@ -17,8 +17,7 @@ import {DeployTWAPPriceProvider} from "./DeployTWAPPriceProvider.s.sol";
  */
 contract DeployUniswapV3SwapProvider is Script {
     /// @dev Uniswap V3 Factory address on Ethereum mainnet
-    address constant UNISWAP_V3_FACTORY =
-        0x1F98431c8aD98523631AE4a59f267346ea31F984;
+    address constant UNISWAP_V3_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
     /// @dev Uniswap V3 SwapRouter address on Ethereum mainnet
     address constant SWAP_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
@@ -35,41 +34,23 @@ contract DeployUniswapV3SwapProvider is Script {
      * @param twapPriceProvider Address of deployed TWAPPriceProvider contract
      * @return swapProvider The deployed UniswapV3SwapProvider contract instance
      */
-    function run(
-        address twapPriceProvider
-    ) external returns (UniswapV3SwapProvider) {
-        require(
-            twapPriceProvider != address(0),
-            "Invalid TWAP price provider address"
-        );
+    function run(address twapPriceProvider) external returns (UniswapV3SwapProvider) {
+        require(twapPriceProvider != address(0), "Invalid TWAP price provider address");
 
         vm.startBroadcast();
 
         // TWAP slippage: 1% (100 basis points)
         uint256 twapSlippageBasisPoints = 100;
 
-        UniswapV3PoolManager.Pair[]
-            memory pairs = new UniswapV3PoolManager.Pair[](3);
+        UniswapV3PoolManager.Pair[] memory pairs = new UniswapV3PoolManager.Pair[](3);
 
         // USDC/WETH 0.05% fee (most liquid pool)
-        pairs[0] = UniswapV3PoolManager.Pair({
-            tokenA: USDC,
-            tokenB: WETH,
-            fee: 500
-        });
+        pairs[0] = UniswapV3PoolManager.Pair({tokenA: USDC, tokenB: WETH, fee: 500});
 
         // WETH/USDT 0.05% fee
-        pairs[1] = UniswapV3PoolManager.Pair({
-            tokenA: WETH,
-            tokenB: USDT,
-            fee: 500
-        });
+        pairs[1] = UniswapV3PoolManager.Pair({tokenA: WETH, tokenB: USDT, fee: 500});
 
-        pairs[2] = UniswapV3PoolManager.Pair({
-            tokenA: USDC,
-            tokenB: USDT,
-            fee: 500
-        });
+        pairs[2] = UniswapV3PoolManager.Pair({tokenA: USDC, tokenB: USDT, fee: 500});
 
         UniswapV3SwapProvider swapProvider = new UniswapV3SwapProvider(
             ISwapRouter(SWAP_ROUTER),
@@ -98,28 +79,14 @@ contract DeployUniswapV3SwapProvider is Script {
         // Then deploy UniswapV3SwapProvider
         uint256 twapSlippageBasisPoints = 100; // 1%
 
-        UniswapV3PoolManager.Pair[]
-            memory pairs = new UniswapV3PoolManager.Pair[](2);
+        UniswapV3PoolManager.Pair[] memory pairs = new UniswapV3PoolManager.Pair[](2);
 
-        pairs[0] = UniswapV3PoolManager.Pair({
-            tokenA: USDC,
-            tokenB: WETH,
-            fee: 500
-        });
+        pairs[0] = UniswapV3PoolManager.Pair({tokenA: USDC, tokenB: WETH, fee: 500});
 
-        pairs[1] = UniswapV3PoolManager.Pair({
-            tokenA: WETH,
-            tokenB: USDT,
-            fee: 500
-        });
+        pairs[1] = UniswapV3PoolManager.Pair({tokenA: WETH, tokenB: USDT, fee: 500});
 
         UniswapV3SwapProvider swapProvider = new UniswapV3SwapProvider(
-            ISwapRouter(SWAP_ROUTER),
-            UNISWAP_V3_FACTORY,
-            pairs,
-            twapProvider,
-            twapSlippageBasisPoints,
-            IWETH9(WETH)
+            ISwapRouter(SWAP_ROUTER), UNISWAP_V3_FACTORY, pairs, twapProvider, twapSlippageBasisPoints, IWETH9(WETH)
         );
 
         vm.stopBroadcast();
