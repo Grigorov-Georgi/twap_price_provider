@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-pragma solidity 0.7.6;
+pragma solidity ^0.7.6;
 pragma abicoder v2;
 
 import {ISwapRouter} from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
@@ -9,8 +9,9 @@ import {UniswapV3PoolManager} from "./UniswapV3PoolManager.sol";
 import {ITWAPPriceProvider} from "./interfaces/ITWAPPriceProvider.sol";
 import {IWETH9} from "./interfaces/IWETH9.sol";
 import {IUniswapV3SwapProvider} from "./interfaces/IUniswapV3SwapProvider.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
+contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider, ReentrancyGuard {
     ISwapRouter public immutable swapRouter;
     ITWAPPriceProvider public immutable twapPriceProvider;
     IWETH9 public immutable WETH9;
@@ -62,7 +63,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
         uint256 amountIn,
         uint256 amountOutMinimum,
         uint256 deadline
-    ) external payable override returns (uint256 amountOut) {
+    ) external payable override nonReentrant returns (uint256 amountOut) {
         bool isETHIn = tokenIn == address(0);
         bool isETHOut = tokenOut == address(0);
 
@@ -134,7 +135,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
         uint256 amountOut,
         uint256 amountInMaximum,
         uint256 deadline
-    ) external payable override returns (uint256 amountIn) {
+    ) external payable override nonReentrant returns (uint256 amountIn) {
         bool isETHIn = tokenIn == address(0);
         bool isETHOut = tokenOut == address(0);
 
@@ -212,7 +213,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
         uint256 amountIn,
         uint256 amountOutMinimum,
         uint256 deadline
-    ) external payable override returns (uint256 amountOut) {
+    ) external payable override nonReentrant returns (uint256 amountOut) {
         require(hops.length > 0, "At least 1 hop required");
         require(deadline >= block.timestamp, "Invalid deadline");
 
@@ -285,7 +286,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider {
         uint256 amountOut,
         uint256 amountInMaximum,
         uint256 deadline
-    ) external payable override returns (uint256 amountIn) {
+    ) external payable override nonReentrant returns (uint256 amountIn) {
         require(hops.length > 0, "At least 1 hop required");
         require(deadline >= block.timestamp, "Invalid deadline");
 
