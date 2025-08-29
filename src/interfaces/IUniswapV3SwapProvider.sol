@@ -9,35 +9,13 @@ interface IUniswapV3SwapProvider {
         uint24 fee;
     }
 
-    function swapExactInputSingleHop(
-        address tokenIn,
-        address tokenOut,
-        uint24 fee,
-        uint256 amountIn,
-        uint256 amountOutMinimum,
-        uint256 deadline
-    ) external payable returns (uint256 amountOut);
+    function swapExactInput(SwapHop[] calldata hops, uint256 amountIn, uint256 amountOutMinimum, uint256 deadline)
+        external
+        payable
+        returns (uint256 amountOut);
 
-    function swapExactOutputSingleHop(
-        address tokenIn,
-        address tokenOut,
-        uint24 fee,
-        uint256 amountOut,
-        uint256 amountInMaximum,
-        uint256 deadline
-    ) external payable returns (uint256 amountIn);
-
-    function swapExactInputMultihop(
-        SwapHop[] calldata hops,
-        uint256 amountIn,
-        uint256 amountOutMinimum,
-        uint256 deadline
-    ) external payable returns (uint256 amountOut);
-
-    function swapExactOutputMultihop(
-        SwapHop[] calldata hops,
-        uint256 amountOut,
-        uint256 amountInMaximum,
-        uint256 deadline
-    ) external payable returns (uint256 amountIn);
+    function swapExactOutput(SwapHop[] calldata hops, uint256 amountOut, uint256 amountInMaximum, uint256 deadline)
+        external
+        payable
+        returns (uint256 amountIn);
 }
