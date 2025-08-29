@@ -167,7 +167,7 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
             fee: FEE_LOW
         });
 
-        uint256 amountOut = swapProvider.swapExactInput{value: ethAmountIn}(hops, 0, 0, deadline);
+        uint256 amountOut = swapProvider.swapExactInputNative{value: ethAmountIn}(hops, 0, deadline);
 
         uint256 ethBalanceAfter = user.balance;
         uint256 usdcBalanceAfter = usdc.balanceOf(user);
@@ -180,7 +180,7 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
         vm.stopPrank();
     }
 
-    function testSwapUSDCForETH() public {
+    function testSwapUSDCForWETH() public {
         vm.startPrank(user);
 
         uint256 amountIn = 3000 * 1e6;
@@ -188,26 +188,26 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
 
         usdc.approve(address(swapProvider), amountIn);
 
-        uint256 ethBalanceBefore = user.balance;
+        uint256 wethBalanceBefore = weth.balanceOf(user);
         uint256 usdcBalanceBefore = usdc.balanceOf(user);
 
         IUniswapV3SwapProvider.SwapHop[] memory hops = new IUniswapV3SwapProvider.SwapHop[](1);
         hops[0] = IUniswapV3SwapProvider.SwapHop({
             tokenIn: MAINNET_USDC,
-            tokenOut: address(0), // ETH output
+            tokenOut: MAINNET_WETH, // WETH output
             fee: FEE_LOW
         });
 
         uint256 amountOut = swapProvider.swapExactInput(hops, amountIn, 0, deadline);
 
-        uint256 ethBalanceAfter = user.balance;
+        uint256 wethBalanceAfter = weth.balanceOf(user);
         uint256 usdcBalanceAfter = usdc.balanceOf(user);
 
         assertEq(usdcBalanceBefore - usdcBalanceAfter, amountIn, "USDC should be spent");
-        assertTrue(ethBalanceAfter > ethBalanceBefore, "ETH balance should increase");
+        assertEq(wethBalanceAfter - wethBalanceBefore, amountOut, "WETH balance should increase");
 
-        assertTrue(amountOut > 0.5 ether, "1800 USDC should get more than 0.8 ETH");
-        assertTrue(amountOut < 1 ether, "1800 USDC should get less than 1.2 ETH");
+        assertTrue(amountOut > 0.5 ether, "3000 USDC should get more than 0.5 WETH");
+        assertTrue(amountOut < 1 ether, "3000 USDC should get less than 1 WETH");
 
         vm.stopPrank();
     }
@@ -229,7 +229,7 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
             fee: FEE_LOW
         });
 
-        uint256 amountIn = swapProvider.swapExactOutput{value: ethMaxIn}(hops, amountOut, 0, deadline);
+        uint256 amountIn = swapProvider.swapExactOutputNative{value: ethMaxIn}(hops, amountOut, deadline);
 
         uint256 ethBalanceAfter = user.balance;
         uint256 usdcBalanceAfter = usdc.balanceOf(user);
@@ -285,19 +285,18 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
         hops[0] = IUniswapV3SwapProvider.SwapHop({tokenIn: address(0), tokenOut: MAINNET_USDC, fee: FEE_LOW});
 
         vm.expectRevert("Must send ETH");
-        swapProvider.swapExactInput(hops, 1 ether, 0, block.timestamp + 300);
+        swapProvider.swapExactInputNative(hops, 0, block.timestamp + 300);
         vm.stopPrank();
     }
 
-    function testERC20SwapRevertsWithValue() public {
+    function testNativeSwapRevertsWithETHOutput() public {
         vm.startPrank(user);
-        weth.approve(address(swapProvider), 1 ether);
 
         IUniswapV3SwapProvider.SwapHop[] memory hops = new IUniswapV3SwapProvider.SwapHop[](1);
-        hops[0] = IUniswapV3SwapProvider.SwapHop({tokenIn: MAINNET_WETH, tokenOut: MAINNET_USDC, fee: FEE_LOW});
+        hops[0] = IUniswapV3SwapProvider.SwapHop({tokenIn: address(0), tokenOut: address(0), fee: FEE_LOW});
 
-        vm.expectRevert("ETH not expected");
-        swapProvider.swapExactInput{value: 1 ether}(hops, 1 ether, 0, block.timestamp + 300);
+        vm.expectRevert("Output token must be ERC20");
+        swapProvider.swapExactInputNative{value: 1 ether}(hops, 0, block.timestamp + 300);
         vm.stopPrank();
     }
 
@@ -373,9 +372,8 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
         uint256 ethBalanceBefore = user.balance;
         uint256 usdtBalanceBefore = usdt.balanceOf(user);
 
-        uint256 amountOut = swapProvider.swapExactInput{value: amountIn}(
+        uint256 amountOut = swapProvider.swapExactInputNative{value: amountIn}(
             hops,
-            0, // amountIn ignored for ETH
             0, // Auto-calculate minimum output
             deadline
         );
@@ -438,12 +436,7 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
         uint256 ethBalanceBefore = user.balance;
         uint256 usdtBalanceBefore = usdt.balanceOf(user);
 
-        uint256 amountIn = swapProvider.swapExactOutput{value: 2 ether}(
-            hops,
-            amountOut,
-            0, // amountInMaximum ignored for ETH
-            deadline
-        );
+        uint256 amountIn = swapProvider.swapExactOutputNative{value: 2 ether}(hops, amountOut, deadline);
 
         uint256 ethBalanceAfter = user.balance;
         uint256 usdtBalanceAfter = usdt.balanceOf(user);
@@ -523,22 +516,7 @@ contract UniswapV3SwapProviderIntegrationTest is Test {
         hops[0] = IUniswapV3SwapProvider.SwapHop({tokenIn: address(0), tokenOut: MAINNET_USDC, fee: FEE_LOW});
 
         vm.expectRevert("Must send ETH");
-        swapProvider.swapExactInput(hops, 1 ether, 0, block.timestamp + 300);
-
-        vm.stopPrank();
-    }
-
-    function testMultihopERC20SwapRevertsWithValue() public {
-        vm.startPrank(user);
-
-        IUniswapV3SwapProvider.SwapHop[] memory hops = new IUniswapV3SwapProvider.SwapHop[](1);
-
-        hops[0] = IUniswapV3SwapProvider.SwapHop({tokenIn: MAINNET_WETH, tokenOut: MAINNET_USDC, fee: FEE_LOW});
-
-        weth.approve(address(swapProvider), 1 ether);
-
-        vm.expectRevert("ETH not expected");
-        swapProvider.swapExactInput{value: 0.1 ether}(hops, 1 ether, 0, block.timestamp + 300);
+        swapProvider.swapExactInputNative(hops, 0, block.timestamp + 300);
 
         vm.stopPrank();
     }
