@@ -62,7 +62,6 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider, 
     {
         require(hops.length > 0, "At least 1 hop required");
         require(deadline >= block.timestamp, "Invalid deadline");
-        require(amountIn > 0 && amountIn <= type(uint128).max, "Invalid amount in");
 
         address tokenIn = hops[0].tokenIn;
 
@@ -154,7 +153,6 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider, 
     {
         require(hops.length > 0, "At least 1 hop required");
         require(deadline >= block.timestamp, "Invalid deadline");
-        require(amountOut > 0 && amountOut <= type(uint128).max, "Invalid amount out");
 
         address tokenIn = hops[0].tokenIn;
 
@@ -204,7 +202,6 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider, 
         require(hops.length > 0, "At least 1 hop required");
         require(deadline >= block.timestamp, "Invalid deadline");
         require(msg.value > 0, "Must send ETH");
-        require(amountOut > 0 && amountOut <= type(uint128).max, "Invalid amount out");
         require(hops[0].tokenIn == address(0), "First token must be ETH");
 
         uint256 amountInMaximum = msg.value;
