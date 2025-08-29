@@ -249,7 +249,10 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider, 
 
     /// @dev Safely approves tokens for swap router
     function _safeApprove(address tokenIn, uint256 amount) internal {
-        TransferHelper.safeApprove(tokenIn, address(swapRouter), amount);
+        TransferHelper.safeApprove(tokenIn, address(swapRouter), 0);
+        if (amount > 0) {
+            TransferHelper.safeApprove(tokenIn, address(swapRouter), amount);
+        }
     }
 
     /// @dev Validates all hops in a multihop swap path
