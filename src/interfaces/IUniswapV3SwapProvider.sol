@@ -2,6 +2,8 @@
 pragma solidity >=0.5.0;
 pragma abicoder v2;
 
+import {ITWAPPriceProvider} from "./ITWAPPriceProvider.sol";
+
 interface IUniswapV3SwapProvider {
     struct SwapHop {
         address tokenIn;
@@ -26,4 +28,8 @@ interface IUniswapV3SwapProvider {
         external
         payable
         returns (uint256 amountIn);
+
+    function setTwapSlippage(uint256 _twapSlippageBasisPoints) external;
+
+    function setTwapProvider(ITWAPPriceProvider _newTwapProvider) external;
 }
