@@ -30,9 +30,6 @@ contract DeployTWAPPriceProvider is Script {
     function run() external returns (TWAPPriceProvider) {
         vm.startBroadcast();
 
-        // TWAP interval: 30 minutes (1800 seconds)
-        uint32 interval = 1800;
-
         UniswapV3PoolManager.Pair[] memory pairs = new UniswapV3PoolManager.Pair[](3);
 
         // USDC/WETH 0.05% fee (most liquid pool)
@@ -44,7 +41,7 @@ contract DeployTWAPPriceProvider is Script {
         // USDC/USDT 0.05% fee
         pairs[2] = UniswapV3PoolManager.Pair({tokenA: USDC, tokenB: USDT, fee: 500});
 
-        TWAPPriceProvider priceProvider = new TWAPPriceProvider(UNISWAP_V3_FACTORY, interval, pairs);
+        TWAPPriceProvider priceProvider = new TWAPPriceProvider(UNISWAP_V3_FACTORY, pairs);
 
         vm.stopBroadcast();
         return priceProvider;

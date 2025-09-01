@@ -7,7 +7,7 @@ import {ITWAPPriceProvider} from "./interfaces/ITWAPPriceProvider.sol";
 import {UniswapV3PoolManager} from "./UniswapV3PoolManager.sol";
 
 contract TWAPPriceProvider is ITWAPPriceProvider, UniswapV3PoolManager {
-    uint32 public constant MAX_TWAP_INTERVAL = 9 * 24 * 60 * 60; // 9 days (Uniswap V3 oracle limit)
+    uint32 private constant _MAX_TWAP_INTERVAL = 9 * 24 * 60 * 60; // 9 days (Uniswap V3 oracle limit)
 
     constructor(address _factory, UniswapV3PoolManager.Pair[] memory pairs) UniswapV3PoolManager(_factory, pairs) {}
 
@@ -29,7 +29,7 @@ contract TWAPPriceProvider is ITWAPPriceProvider, UniswapV3PoolManager {
         require(tokenIn != tokenOut, "Identical tokens");
         require(amountIn > 0, "Invalid amount");
         require(interval > 0, "Invalid interval");
-        require(interval <= MAX_TWAP_INTERVAL, "Interval too long");
+        require(interval <= _MAX_TWAP_INTERVAL, "Interval too long");
 
         address pool = _validatePair(tokenIn, tokenOut, fee);
 
@@ -41,5 +41,9 @@ contract TWAPPriceProvider is ITWAPPriceProvider, UniswapV3PoolManager {
     function getPool(address tokenA, address tokenB, uint24 fee) external view override returns (address) {
         (address token0, address token1) = _orderTokens(tokenA, tokenB);
         return allowedPools[token0][token1][fee];
+    }
+
+    function MAX_TWAP_INTERVAL() external pure override returns (uint32) {
+        return _MAX_TWAP_INTERVAL;
     }
 }

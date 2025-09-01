@@ -39,8 +39,8 @@ contract DeployUniswapV3SwapProvider is Script {
 
         vm.startBroadcast();
 
-        // TWAP slippage: 1% (100 basis points)
-        uint256 twapSlippageBasisPoints = 100;
+        uint256 twapSlippageBasisPoints = 100; // 1%
+        uint32 twapInterval = 1800; // 30 minutes
 
         UniswapV3PoolManager.Pair[] memory pairs = new UniswapV3PoolManager.Pair[](3);
 
@@ -58,6 +58,7 @@ contract DeployUniswapV3SwapProvider is Script {
             pairs,
             TWAPPriceProvider(twapPriceProvider),
             twapSlippageBasisPoints,
+            twapInterval,
             IWETH9(WETH)
         );
 
@@ -78,6 +79,7 @@ contract DeployUniswapV3SwapProvider is Script {
 
         // Then deploy UniswapV3SwapProvider
         uint256 twapSlippageBasisPoints = 100; // 1%
+        uint32 twapInterval = 1800; // 30 minutes
 
         UniswapV3PoolManager.Pair[] memory pairs = new UniswapV3PoolManager.Pair[](2);
 
@@ -86,7 +88,13 @@ contract DeployUniswapV3SwapProvider is Script {
         pairs[1] = UniswapV3PoolManager.Pair({tokenA: WETH, tokenB: USDT, fee: 500});
 
         UniswapV3SwapProvider swapProvider = new UniswapV3SwapProvider(
-            ISwapRouter(SWAP_ROUTER), UNISWAP_V3_FACTORY, pairs, twapProvider, twapSlippageBasisPoints, IWETH9(WETH)
+            ISwapRouter(SWAP_ROUTER),
+            UNISWAP_V3_FACTORY,
+            pairs,
+            twapProvider,
+            twapSlippageBasisPoints,
+            twapInterval,
+            IWETH9(WETH)
         );
 
         vm.stopBroadcast();

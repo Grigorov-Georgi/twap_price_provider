@@ -45,7 +45,6 @@ contract TWAPPriceProviderIntegrationTest is Test {
 
     function testConstructorSetsCorrectValues() public view {
         assertEq(priceProvider.uniswapFactory(), UNISWAP_V3_FACTORY);
-        assertEq(uint256(priceProvider.twapInterval()), uint256(TWAP_INTERVAL));
     }
 
     function testPoolsAreRegisteredCorrectly() public view {
@@ -65,7 +64,8 @@ contract TWAPPriceProviderIntegrationTest is Test {
             WETH,
             USDC,
             FEE_LOW, // Using FEE_LOW (0.05%) as per deploy script
-            amountIn
+            amountIn,
+            TWAP_INTERVAL
         );
 
         assertTrue(amountOut > 0, "Should return positive amount");
@@ -80,7 +80,8 @@ contract TWAPPriceProviderIntegrationTest is Test {
             USDC,
             WETH,
             FEE_LOW, // Using FEE_LOW (0.05%) as per deploy script
-            amountIn
+            amountIn,
+            TWAP_INTERVAL
         );
 
         assertTrue(amountOut > 0, "Should return positive amount");
@@ -95,7 +96,8 @@ contract TWAPPriceProviderIntegrationTest is Test {
             WETH,
             USDT,
             FEE_LOW, // Using FEE_LOW (0.05%) as per deploy script
-            amountIn
+            amountIn,
+            TWAP_INTERVAL
         );
 
         assertTrue(amountOut > 0, "Should return positive amount");
@@ -110,7 +112,8 @@ contract TWAPPriceProviderIntegrationTest is Test {
             USDT,
             WETH,
             FEE_LOW, // Using FEE_LOW (0.05%) as per deploy script
-            amountIn
+            amountIn,
+            TWAP_INTERVAL
         );
 
         assertTrue(amountOut > 0, "Should return positive amount");
@@ -120,22 +123,22 @@ contract TWAPPriceProviderIntegrationTest is Test {
 
     function testConsultRevertsForIdenticalTokens() public {
         vm.expectRevert("Identical tokens");
-        priceProvider.consult(WETH, WETH, FEE_LOW, 1 ether);
+        priceProvider.consult(WETH, WETH, FEE_LOW, 1 ether, TWAP_INTERVAL);
     }
 
     function testConsultRevertsForZeroAmount() public {
         vm.expectRevert("Invalid amount");
-        priceProvider.consult(WETH, USDC, FEE_LOW, 0);
+        priceProvider.consult(WETH, USDC, FEE_LOW, 0, TWAP_INTERVAL);
     }
 
     function testConsultRevertsForUnregisteredPair() public {
         vm.expectRevert("Pair not allowed");
-        priceProvider.consult(WETH, DAI, FEE_LOW, 1 ether);
+        priceProvider.consult(WETH, DAI, FEE_LOW, 1 ether, TWAP_INTERVAL);
     }
 
     function testConsultRevertsForWrongFee() public {
         vm.expectRevert("Pair not allowed");
-        priceProvider.consult(WETH, USDC, FEE_HIGH, 1 ether); // FEE_HIGH not registered
+        priceProvider.consult(WETH, USDC, FEE_HIGH, 1 ether, TWAP_INTERVAL); // FEE_HIGH not registered
     }
 
     function testPriceConsistencyBothDirections() public view {
@@ -146,7 +149,8 @@ contract TWAPPriceProviderIntegrationTest is Test {
             WETH,
             USDC,
             FEE_LOW, // Using FEE_LOW as per deploy script
-            amountIn
+            amountIn,
+            TWAP_INTERVAL
         );
 
         // Get USDC -> WETH price with the received amount
@@ -154,7 +158,8 @@ contract TWAPPriceProviderIntegrationTest is Test {
             USDC,
             WETH,
             FEE_LOW, // Using FEE_LOW as per deploy script
-            uint128(usdcOut)
+            uint128(usdcOut),
+            TWAP_INTERVAL
         );
 
         // Due to TWAP and potential price movements, allow some tolerance
@@ -172,19 +177,22 @@ contract TWAPPriceProviderIntegrationTest is Test {
             WETH,
             USDC,
             FEE_LOW, // Using FEE_LOW as per deploy script
-            amountIn
+            amountIn,
+            TWAP_INTERVAL
         );
         uint256 result2 = priceProvider.consult(
             WETH,
             USDC,
             FEE_LOW, // Using FEE_LOW as per deploy script
-            amountIn
+            amountIn,
+            TWAP_INTERVAL
         );
         uint256 result3 = priceProvider.consult(
             WETH,
             USDC,
             FEE_LOW, // Using FEE_LOW as per deploy script
-            amountIn
+            amountIn,
+            TWAP_INTERVAL
         );
 
         assertEq(result1, result2, "Multiple calls should return same result");
@@ -195,10 +203,10 @@ contract TWAPPriceProviderIntegrationTest is Test {
         uint128 amountIn = 1 ether; // 1 WETH
 
         // Test WETH -> USDT
-        uint256 result1 = priceProvider.consult(WETH, USDT, FEE_LOW, amountIn);
+        uint256 result1 = priceProvider.consult(WETH, USDT, FEE_LOW, amountIn, TWAP_INTERVAL);
 
         // Test USDT -> WETH with equivalent amount
-        uint256 result2 = priceProvider.consult(USDT, WETH, FEE_LOW, uint128(result1));
+        uint256 result2 = priceProvider.consult(USDT, WETH, FEE_LOW, uint128(result1), TWAP_INTERVAL);
 
         // Should be able to convert back with minimal loss
         uint256 tolerance = amountIn / 100; // 1% tolerance
@@ -206,5 +214,16 @@ contract TWAPPriceProviderIntegrationTest is Test {
             result2 >= amountIn - tolerance && result2 <= amountIn + tolerance,
             "Token ordering should not significantly affect results"
         );
+    }
+
+    function testConsultRevertsForZeroInterval() public {
+        vm.expectRevert("Invalid interval");
+        priceProvider.consult(WETH, USDC, FEE_LOW, 1 ether, 0);
+    }
+
+    function testConsultRevertsForTooLongInterval() public {
+        uint32 maxInterval = priceProvider.MAX_TWAP_INTERVAL();
+        vm.expectRevert("Interval too long");
+        priceProvider.consult(WETH, USDC, FEE_LOW, 1 ether, maxInterval + 1);
     }
 }
