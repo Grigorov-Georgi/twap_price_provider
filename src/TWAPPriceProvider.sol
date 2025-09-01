@@ -5,20 +5,11 @@ pragma abicoder v2;
 import {OracleLibrary} from "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
 import {ITWAPPriceProvider} from "./interfaces/ITWAPPriceProvider.sol";
 import {UniswapV3PoolManager} from "./UniswapV3PoolManager.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract TWAPPriceProvider is ITWAPPriceProvider, UniswapV3PoolManager, Ownable, ReentrancyGuard {
-    uint32 public twapInterval;
-    uint32 private constant MAX_TWAP_INTERVAL = 9 * 24 * 60 * 60; // 9 days (Uniswap V3 oracle limit)
+contract TWAPPriceProvider is ITWAPPriceProvider, UniswapV3PoolManager {
+    uint32 public constant MAX_TWAP_INTERVAL = 9 * 24 * 60 * 60; // 9 days (Uniswap V3 oracle limit)
 
-    constructor(address _factory, uint32 _interval, UniswapV3PoolManager.Pair[] memory pairs)
-        UniswapV3PoolManager(_factory, pairs)
-    {
-        require(_interval > 0, "TWAP interval must be > 0");
-        require(_interval <= MAX_TWAP_INTERVAL, "TWAP interval too long");
-        twapInterval = _interval;
-    }
+    constructor(address _factory, UniswapV3PoolManager.Pair[] memory pairs) UniswapV3PoolManager(_factory, pairs) {}
 
     /**
      * @notice Gets the TWAP price quote for a token swap
@@ -26,9 +17,10 @@ contract TWAPPriceProvider is ITWAPPriceProvider, UniswapV3PoolManager, Ownable,
      * @param tokenOut Address of the output token
      * @param fee Pool fee tier to use for the quote
      * @param amountIn Amount of input tokens
+     * @param interval TWAP interval in seconds
      * @return amountOut Expected amount of output tokens based on TWAP
      */
-    function consult(address tokenIn, address tokenOut, uint24 fee, uint128 amountIn)
+    function consult(address tokenIn, address tokenOut, uint24 fee, uint128 amountIn, uint32 interval)
         external
         view
         override
@@ -36,10 +28,12 @@ contract TWAPPriceProvider is ITWAPPriceProvider, UniswapV3PoolManager, Ownable,
     {
         require(tokenIn != tokenOut, "Identical tokens");
         require(amountIn > 0, "Invalid amount");
+        require(interval > 0, "Invalid interval");
+        require(interval <= MAX_TWAP_INTERVAL, "Interval too long");
 
         address pool = _validatePair(tokenIn, tokenOut, fee);
 
-        (int24 avgTick,) = OracleLibrary.consult(pool, twapInterval);
+        (int24 avgTick,) = OracleLibrary.consult(pool, interval);
 
         amountOut = OracleLibrary.getQuoteAtTick(avgTick, amountIn, tokenIn, tokenOut);
     }
@@ -47,15 +41,5 @@ contract TWAPPriceProvider is ITWAPPriceProvider, UniswapV3PoolManager, Ownable,
     function getPool(address tokenA, address tokenB, uint24 fee) external view override returns (address) {
         (address token0, address token1) = _orderTokens(tokenA, tokenB);
         return allowedPools[token0][token1][fee];
-    }
-
-    /**
-     * @notice Sets the TWAP interval for price calculations
-     * @param _newInterval New TWAP interval in seconds
-     */
-    function setTwapInterval(uint32 _newInterval) external override onlyOwner nonReentrant {
-        require(_newInterval > 0, "TWAP interval must be > 0");
-        require(_newInterval <= MAX_TWAP_INTERVAL, "TWAP interval too long");
-        twapInterval = _newInterval;
     }
 }

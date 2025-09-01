@@ -14,10 +14,11 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider, ReentrancyGuard, Ownable {
     ISwapRouter public immutable swapRouter;
-    ITWAPPriceProvider public twapPriceProvider;
+    ITWAPPriceProvider public immutable twapPriceProvider;
     IWETH9 public immutable WETH9;
 
     uint256 public twapSlippageBasisPoints;
+    uint32 public twapInterval;
     uint256 private constant MAX_BASIS_POINTS = 10000; // 100%
 
     /**
@@ -27,6 +28,7 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider, 
      * @param pairs Array of token pairs to enable for swapping
      * @param _twapPriceProvider TWAP price provider for slippage protection
      * @param _twapSlippageBasisPoints Default slippage tolerance in basis points (100 = 1%)
+     * @param _twapInterval TWAP interval in seconds for price calculations
      * @param _weth9 WETH9 contract address for ETH/WETH conversions
      */
     constructor(
@@ -35,15 +37,19 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider, 
         Pair[] memory pairs,
         ITWAPPriceProvider _twapPriceProvider,
         uint256 _twapSlippageBasisPoints,
+        uint32 _twapInterval,
         IWETH9 _weth9
     ) UniswapV3PoolManager(_factory, pairs) {
         require(address(_swapRouter) != address(0), "Invalid swap router");
         require(address(_twapPriceProvider) != address(0), "Invalid TWAP provider");
         require(address(_weth9) != address(0), "Invalid WETH address");
+        require(_twapInterval > 0, "TWAP interval must be > 0");
+        require(_twapInterval <= _twapPriceProvider.MAX_TWAP_INTERVAL(), "TWAP interval too long");
 
         swapRouter = _swapRouter;
         twapPriceProvider = _twapPriceProvider;
         twapSlippageBasisPoints = _twapSlippageBasisPoints;
+        twapInterval = _twapInterval;
         WETH9 = _weth9;
     }
 
@@ -281,7 +287,8 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider, 
             address tokenIn = (i == 0 && hops[i].tokenIn == address(0)) ? address(WETH9) : hops[i].tokenIn;
             address tokenOut = hops[i].tokenOut;
 
-            curTwapPrice = twapPriceProvider.consult(tokenIn, tokenOut, hops[i].fee, uint128(curTwapPrice));
+            curTwapPrice =
+                twapPriceProvider.consult(tokenIn, tokenOut, hops[i].fee, uint128(curTwapPrice), twapInterval);
         }
 
         return (curTwapPrice * (MAX_BASIS_POINTS - twapSlippageBasisPoints)) / MAX_BASIS_POINTS;
@@ -304,7 +311,8 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider, 
             address tokenIn = (i == 0 && hops[i].tokenIn == address(0)) ? address(WETH9) : hops[i].tokenIn;
             address tokenOut = hops[i].tokenOut;
 
-            curTwapPrice = twapPriceProvider.consult(tokenOut, tokenIn, hops[i].fee, uint128(curTwapPrice));
+            curTwapPrice =
+                twapPriceProvider.consult(tokenOut, tokenIn, hops[i].fee, uint128(curTwapPrice), twapInterval);
         }
 
         return (curTwapPrice * (MAX_BASIS_POINTS + twapSlippageBasisPoints)) / MAX_BASIS_POINTS;
@@ -368,12 +376,13 @@ contract UniswapV3SwapProvider is UniswapV3PoolManager, IUniswapV3SwapProvider, 
     }
 
     /**
-     * @notice Sets a new TWAP price provider
-     * @param _newTwapProvider Address of the new TWAP price provider
+     * @notice Sets the TWAP interval for price calculations
+     * @param _newInterval New TWAP interval in seconds
      */
-    function setTwapProvider(ITWAPPriceProvider _newTwapProvider) external override onlyOwner nonReentrant {
-        require(address(_newTwapProvider) != address(0), "Invalid TWAP provider");
-        twapPriceProvider = _newTwapProvider;
+    function setTwapInterval(uint32 _newInterval) external override onlyOwner nonReentrant {
+        require(_newInterval > 0, "TWAP interval must be > 0");
+        require(_newInterval <= twapPriceProvider.MAX_TWAP_INTERVAL(), "TWAP interval too long");
+        twapInterval = _newInterval;
     }
 
     receive() external payable {
